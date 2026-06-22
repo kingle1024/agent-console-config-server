@@ -1,8 +1,9 @@
-# ── 빌드 스테이지: Gradle + JDK21 로 부트 jar 생성 ──
-FROM gradle:8.14-jdk21 AS build
+# ── 빌드 스테이지: JDK21 + gradle wrapper(9.5.1)로 부트 jar 생성 ──
+# (이미지의 gradle 대신 wrapper 를 써서 Boot 4.1 이 요구하는 gradle 버전 보장)
+FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 COPY . .
-RUN gradle --no-daemon clean bootJar
+RUN chmod +x gradlew && ./gradlew --no-daemon clean bootJar -x test
 
 # ── 런타임 스테이지: JRE21 ──
 FROM eclipse-temurin:21-jre
