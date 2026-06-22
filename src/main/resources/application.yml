@@ -1,0 +1,31 @@
+server:
+  # cloudtype 등은 PORT 환경변수를 주입 → 없으면 8888
+  port: ${PORT:8888}
+
+spring:
+  application:
+    name: agent-console-config-server
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          # 클래스패스의 config/ 폴더에서 설정 파일을 읽는다(agent-console.yml → /agent-console/default)
+          search-locations: classpath:/config
+  security:
+    user:
+      name: ${CONFIG_USER:agent}
+      # ★운영(cloudtype)에서는 반드시 CONFIG_PASSWORD 환경변수로 강한 값 지정★ 기본값은 로컬 테스트용
+      password: ${CONFIG_PASSWORD:changeme-local}
+      roles: USER
+
+# {cipher} 복호화 키 — ★repo 에 두지 말고 환경변수 ENCRYPT_KEY 로만 주입★ (없으면 로컬 테스트 키)
+encrypt:
+  key: ${ENCRYPT_KEY:local-dev-encrypt-key-please-change}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

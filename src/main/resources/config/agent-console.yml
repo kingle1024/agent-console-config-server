@@ -1,0 +1,27 @@
+# Agent Console 시크릿 — Spring Cloud Config 가 /agent-console/default 로 제공.
+# ★비밀값은 모두 {cipher} 암호화★ (복호화 키 = 환경변수 ENCRYPT_KEY). port/sid/owner 만 평문.
+# 갱신: 서버 실행 후  printf '%s' '평문' | curl -u $CONFIG_USER:$CONFIG_PASSWORD -H 'Content-Type: text/plain' --data-binary @- $URL/encrypt
+# 출력 앞에 {cipher} 를 붙여 교체.
+db:
+  nsm:
+    host: '{cipher}e4f5054035dfde61f1b162c5f1b4b0a6645143132998f5a9dc1304c9420f022b'
+    port: '15253'
+    sid: 'orcl'
+    user: '{cipher}71526a671f25f4f0887639d477270b5bf0ef2669e4295ad51f6c099864143e0e'
+    password: '{cipher}89f785aa76f7e16e3b090f8c7b5ae9ba1f6ece77da1a2f37d203b504f5c71015'
+    owner: 'COMET'
+  stg:
+    host: '{cipher}0e2c96b0b41c1932e5740923a2db07f3b299c2a440d667d6fe6498defbbffc2e'
+    port: '15253'
+    sid: 'orastg'
+    user: '{cipher}726ea9f5aa3f2bed46756f1ee49e2679cd82f2901d098dce32578d635177d461'
+    password: '{cipher}a0e2d742fda969face746d1833093b604c7b253bc9f8464d082a3cfcad61e2cb'
+    owner: 'COMETQA'
+nsmAuth:
+  userid: '{cipher}0f4abdfbcb9c012d30301b25531f50cc206f13c49ab147aa166e92667c85250d'
+  portalMemberNo: '{cipher}72c3fba66120f84367375f2832b0c1b5e44ff20dddc3a95fbe362d2ccc5767d9'
+  encUid: '{cipher}85fd543ea15a806a461c8cda8545e1eb17436bac1287fdc20dc2ff29e823b60b12f3a1d900ab20d73fd9fe1c30a25ae00dd7a7076a6b13e1d4987dbd5cead6b7'
+  decUid: '{cipher}67d7585f4893dc29780b6b2c4df12d02cd816d2b6d84f722efb7e033f1287c051b7f9df41283727fdb41edac46b3c2bd'
+tokens:
+  jenkinsUser: '{cipher}a123a8e56de19f3cb63457dc1a65ff886e480efcfd8dfd338c9d7b76a473b7b5'
+  jenkinsPassword: '{cipher}6178f759a0063433ca57fbfc20fb329f7c8db2946a4b13036ec939103553926b'
