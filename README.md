@@ -46,8 +46,9 @@
 JAVA_HOME=<JDK21> ./gradlew bootRun
 # 또는
 docker build -t agent-console-config-server .
-docker run -p 8888:8888 -e ENCRYPT_KEY=... -e CONFIG_USER=agent -e CONFIG_PASSWORD=... agent-console-config-server
+docker run -p 8080:8080 -e ENCRYPT_KEY=... -e CONFIG_USER=agent -e CONFIG_PASSWORD=... agent-console-config-server
 ```
+> 컨테이너는 8080(`ENV PORT=8080`), 로컬 `gradlew bootRun` 은 8888(application.yml 기본). cloudtype 의 서비스 포트도 **8080** 으로 맞출 것.
 
 ## cloudtype 배포
 

@@ -9,7 +9,8 @@ RUN chmod +x gradlew && ./gradlew --no-daemon clean bootJar -x test
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/*-SNAPSHOT.jar app.jar
-# cloudtype 은 PORT 환경변수를 주입(없으면 8888). 시크릿 키·비밀번호는 환경변수로만.
-ENV PORT=8888
-EXPOSE 8888
+# 컨테이너(cloudtype)는 8080 으로 listen. 로컬은 PORT 미설정 시 application.yml 의 8888 사용.
+# (cloudtype 이 PORT 를 주입하면 그 값이 우선됨)
+ENV PORT=8080
+EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "java -jar app.jar"]
