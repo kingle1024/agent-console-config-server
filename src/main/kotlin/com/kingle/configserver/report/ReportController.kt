@@ -18,6 +18,7 @@ data class CreateReq(
     val title: String? = null,
     val body: String? = null,
     val reporter: String? = null,
+    val reporterUserId: String? = null,
     val appVersion: String? = null,
     val osInfo: String? = null,
 )
@@ -41,6 +42,7 @@ data class DetailDto(
     val title: String,
     val body: String,
     val reporter: String,
+    val reporterUserId: String?,
     val status: String,
     val createdAt: String,
     val updatedAt: String,
@@ -65,6 +67,7 @@ class ReportController(
             title = title,
             body = req.body?.trim().orEmpty(),
             reporter = req.reporter?.trim().orEmpty().ifEmpty { "unknown" },
+            reporterUserId = req.reporterUserId?.trim()?.ifEmpty { null },
             appVersion = req.appVersion?.trim(),
             osInfo = req.osInfo?.trim(),
         )
@@ -140,6 +143,7 @@ private fun Report.toDetail(cs: List<ReportComment>) = DetailDto(
     title = title,
     body = body,
     reporter = reporter,
+    reporterUserId = reporterUserId,
     status = status,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),

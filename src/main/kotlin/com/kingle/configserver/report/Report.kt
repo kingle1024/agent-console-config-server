@@ -28,6 +28,10 @@ class Report(
     @Column(length = 100, nullable = false)
     var reporter: String = "",
 
+    // 작성자(요청자) 로그인 ID — 답변 알림(아마란스) 수신자 식별용. reporter(사번)와 별개.
+    @Column(name = "reporter_user_id", length = 100)
+    var reporterUserId: String? = null,
+
     @Column(length = 20, nullable = false)
     var status: String = "접수",
 
