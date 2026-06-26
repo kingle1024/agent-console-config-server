@@ -19,6 +19,23 @@ spring:
       # ★운영(cloudtype)에서는 반드시 CONFIG_PASSWORD 환경변수로 강한 값 지정★ 기본값은 로컬 테스트용
       password: ${CONFIG_PASSWORD:changeme-local}
       roles: USER
+  # 개선/오류 리포트 저장용 MariaDB. ★접속정보는 cloudtype 환경변수(DB_URL/DB_USER/DB_PASSWORD)로 주입★
+  # createDatabaseIfNotExist=true → 스키마 없으면 생성. 운영은 전용 계정 권장(root 지양).
+  datasource:
+    url: ${DB_URL:jdbc:mariadb://localhost:3306/agent_console?createDatabaseIfNotExist=true}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      # 운영 초기엔 테이블 자동 생성/갱신. 안정화 후 validate 로 낮추는 것 권장.
+      ddl-auto: update
+    open-in-view: false
+
+# 리포트 API 인증 — 앱이 보내는 X-Api-Key 헤더가 이 값과 같아야 통과(비우면 검증 생략=로컬).
+# ★cloudtype 환경변수 REPORTS_API_KEY 로 주입하고, agent-console.yml 의 reportsApi.apiKey 와 같은 값으로★
+reports:
+  api-key: ${REPORTS_API_KEY:}
 
 # {cipher} 복호화 키 — ★repo 에 두지 말고 환경변수 ENCRYPT_KEY 로만 주입★ (없으면 로컬 테스트 키)
 encrypt:

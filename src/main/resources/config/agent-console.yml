@@ -25,3 +25,13 @@ nsmAuth:
 tokens:
   jenkinsUser: '{cipher}a123a8e56de19f3cb63457dc1a65ff886e480efcfd8dfd338c9d7b76a473b7b5'
   jenkinsPassword: '{cipher}6178f759a0063433ca57fbfc20fb329f7c8db2946a4b13036ec939103553926b'
+# 개선/오류 리포트 API — 앱이 config-server 의 /api/reports 를 호출할 때 쓰는 키/관리자.
+#  apiKey   : X-Api-Key 헤더로 전송 → 서버의 REPORTS_API_KEY(환경변수)와 ★같은 값★이어야 함.
+#             아래 PLACEHOLDER 를 실제 키의 {cipher} 암호문으로 교체:
+#             printf '%s' '실제키' | curl -u $CONFIG_USER:$CONFIG_PASSWORD -H 'Content-Type: text/plain' --data-binary @- $URL/encrypt
+#  adminId  : 관리자(전체 조회·답변·상태변경) userid. 비밀 아님(평문).
+reportsApi:
+  # ★평문 placeholder — 실제 키 발급 후 위 encrypt 명령으로 '{cipher}...' 로 교체하세요.★
+  # (유효하지 않은 {cipher} 값을 두면 Config Server 복호화가 깨져 엔드포인트 전체가 500 나므로 평문으로 둠)
+  apiKey: 'REPLACE_WITH_REPORTS_API_KEY'
+  adminId: 'ejy10241'
