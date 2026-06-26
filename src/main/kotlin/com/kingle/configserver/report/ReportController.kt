@@ -2,11 +2,11 @@ package com.kingle.configserver.report
 
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
@@ -113,8 +113,9 @@ class ReportController(
         return mapOf("ok" to true)
     }
 
-    // 상태 변경(관리자) — 접수/처리중/완료
-    @PatchMapping("/{id}/status")
+    // 상태 변경(관리자) — 접수/처리중/완료.
+    // ★POST·PATCH 둘 다 허용★: cloudtype 프록시가 PATCH 를 막는 환경이 있어 앱은 POST 로 보낸다(하위호환).
+    @RequestMapping("/{id}/status", method = [RequestMethod.POST, RequestMethod.PATCH])
     fun setStatus(@PathVariable id: Long, @RequestBody req: StatusReq): Map<String, Any?> {
         val r = reports.findById(id).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "not found") }
         val s = req.status?.trim().orEmpty()
