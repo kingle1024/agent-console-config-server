@@ -9,10 +9,10 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 
 /**
- * 리포트 API 전용 인증 — /api/reports/** 요청의 X-Api-Key 헤더가
+ * 리포트 API 전용 인증 — 리포트 경로(api/reports) 요청의 X-Api-Key 헤더가
  * reports.api-key(환경변수 REPORTS_API_KEY)와 같아야 통과.
- * 키가 비어있으면(로컬/미설정) 검증을 건너뛴다.
- * SecurityConfig 에서 /api/reports/** 는 permitAll 이라 Config Server Basic 인증과 분리된다.
+ * 키가 비어있으면(로컬·미설정) 검증을 건너뛴다.
+ * SecurityConfig 에서 해당 경로는 permitAll 이라 Config Server Basic 인증과 분리된다.
  */
 @Configuration
 class ReportApiSecurity(
