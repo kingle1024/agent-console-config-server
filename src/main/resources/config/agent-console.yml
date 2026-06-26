@@ -31,7 +31,7 @@ tokens:
 #             printf '%s' '실제키' | curl -u $CONFIG_USER:$CONFIG_PASSWORD -H 'Content-Type: text/plain' --data-binary @- $URL/encrypt
 #  adminId  : 관리자(전체 조회·답변·상태변경) userid. 비밀 아님(평문).
 reportsApi:
-  # ★평문 placeholder — 실제 키 발급 후 위 encrypt 명령으로 '{cipher}...' 로 교체하세요.★
-  # (유효하지 않은 {cipher} 값을 두면 Config Server 복호화가 깨져 엔드포인트 전체가 500 나므로 평문으로 둠)
-  apiKey: 'REPLACE_WITH_REPORTS_API_KEY'
+  # 서버 환경변수 REPORTS_API_KEY 와 ★같은 값★. 현재 cloudtype env = FI.
+  # (보안 강화하려면 더 긴 키로 바꾸고, $URL/encrypt 로 '{cipher}...' 암호화해 교체 권장)
+  apiKey: 'FI'
   adminId: 'ejy10241'
