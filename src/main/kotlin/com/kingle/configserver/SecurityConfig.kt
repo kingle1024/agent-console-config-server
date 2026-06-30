@@ -18,7 +18,7 @@ class SecurityConfig {
 			.authorizeHttpRequests {
 				it.requestMatchers("/actuator/health", "/actuator/info").permitAll()
 				// 리포트·방화벽신청·에러로그·쪽지 API 는 X-Api-Key 필터(ReportApiSecurity)로 별도 보호 → Basic 인증 제외
-				it.requestMatchers("/api/reports/**", "/api/firewalls/**", "/api/errorlogs/**", "/api/memo/**").permitAll()
+				it.requestMatchers("/api/reports/**", "/api/firewalls/**", "/api/errorlogs/**", "/api/memo/**", "/api/bakery/**").permitAll()
 				it.anyRequest().authenticated()
 			}
 			.httpBasic { }
