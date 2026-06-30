@@ -33,6 +33,6 @@ class ReportApiSecurity(
                 }
                 return true
             }
-        }).addPathPatterns("/api/reports/**", "/api/firewalls/**", "/api/errorlogs/**")
+        }).addPathPatterns("/api/reports/**", "/api/firewalls/**", "/api/errorlogs/**", "/api/memo/**")
     }
 }

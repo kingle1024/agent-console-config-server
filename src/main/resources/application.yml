@@ -37,6 +37,14 @@ spring:
 reports:
   api-key: ${REPORTS_API_KEY:}
 
+# 쪽지 발송 프록시(/api/memo)가 쓰는 아마란스(apiproxy) 토큰. ★cloudtype 환경변수로 주입★
+#  - apiproxy redis 에 등록된 토큰이라야 한다(NSM qrLogin 토큰은 152). 만료되면 여기(env)만 갱신.
+#  - 미설정이면 /api/memo 는 503 → 앱은 기존 직접 발송으로 폴백.
+amaranth:
+  access-token: ${AMARANT_ACCESS_TOKEN:}
+  secret-key: ${AMARANT_SECRET_KEY:}
+  group-seq: ${AMARANT_GROUP_SEQ:duzon}
+
 # {cipher} 복호화 키 — ★repo 에 두지 말고 환경변수 ENCRYPT_KEY 로만 주입★ (없으면 로컬 테스트 키)
 encrypt:
   key: ${ENCRYPT_KEY:local-dev-encrypt-key-please-change}
