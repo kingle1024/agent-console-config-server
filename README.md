@@ -18,6 +18,10 @@
 | `CONFIG_USER` | Basic 인증 사용자 (기본 `agent`) |
 | `CONFIG_PASSWORD` | Basic 인증 비밀번호 — 앱에서 입력하는 그 값 |
 | `PORT` | 리슨 포트 (cloudtype 자동 주입) |
+| `R2_ACCESS_KEY_ID` | Cloudflare R2 쓰기 액세스 키 — 방화벽 첨부 업로드(`/api/firewalls/upload`)용 |
+| `R2_SECRET_ACCESS_KEY` | Cloudflare R2 쓰기 비밀 키 (★서버에만 두고 앱에 배포하지 않음★) |
+
+> R2 의 계정ID·버킷·공개URL(`R2_ACCOUNT_ID`/`R2_BUCKET`/`R2_PUBLIC_BASE`)은 비밀이 아니라 `application.yml` 에 기본값이 내장돼 있어 보통 지정할 필요가 없다. 키 2개만 cloudtype env 로 주입하면 된다.
 
 ## 제공 엔드포인트
 

@@ -31,6 +31,22 @@ spring:
       # 운영 초기엔 테이블 자동 생성/갱신. 안정화 후 validate 로 낮추는 것 권장.
       ddl-auto: update
     open-in-view: false
+  # 방화벽 첨부 업로드(/api/firewalls/upload) 멀티파트 한도. 동의서/서버리스트는 작은 파일이므로 넉넉히 제한.
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 30MB
+
+# Cloudflare R2(S3) — 방화벽 첨부를 서버가 직접 업로드(쓰기 키는 ★서버 환경변수에만★ 둔다).
+#  - account-id/bucket/public-base 는 비밀 아님(공개 URL 자체가 공개용). 기본값 내장 — 필요 시 env 로 덮어쓰기.
+#  - access-key-id/secret-access-key 는 ★비밀★. cloudtype 환경변수 R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY 로 주입.
+#    미설정이면 /api/firewalls/upload 는 503 → 앱은 "관리자에게 서버 R2 설정 요청" 안내.
+r2:
+  account-id: ${R2_ACCOUNT_ID:fc0480a6980d228ee7d1ce69e2e24efe}
+  bucket: ${R2_BUCKET:jybuckey}
+  public-base: ${R2_PUBLIC_BASE:https://pub-bf7ab8cf70774a3ba215553cefc74099.r2.dev}
+  access-key-id: ${R2_ACCESS_KEY_ID:}
+  secret-access-key: ${R2_SECRET_ACCESS_KEY:}
 
 # 리포트 API 인증 — 앱이 보내는 X-Api-Key 헤더가 이 값과 같아야 통과(비우면 검증 생략=로컬).
 # ★cloudtype 환경변수 REPORTS_API_KEY 로 주입하고, agent-console.yml 의 reportsApi.apiKey 와 같은 값으로★
