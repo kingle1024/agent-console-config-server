@@ -1,6 +1,7 @@
 package com.kingle.configserver.firewall
 
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDateTime
 
@@ -63,12 +65,41 @@ data class FwDetailDto(
 
 private val FW_STATUSES = listOf("접수", "처리중", "완료")
 
+private const val FIREWALL_PREFIX = "firewall"
+
 @RestController
 @RequestMapping("/api/firewalls")
 class FirewallController(
     private val requests: FirewallRequestRepository,
     private val files: FirewallFileRepository,
+    private val r2: R2Uploader,
 ) {
+    // 첨부 업로드 — 앱이 파일 바이트를 multipart 로 보내면 서버가 R2 에 올린다(쓰기 키는 서버에만).
+    // 반환 objectKey 를 앱이 받아 create 의 files[] 에 넣는다. consent/serverlist 가 같은 folder 를 공유한다.
+    @PostMapping("/upload", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun upload(
+        @RequestParam(required = false) kind: String?,
+        @RequestParam(required = false) folder: String?,
+        @RequestParam("file") file: MultipartFile,
+    ): Map<String, Any?> {
+        if (file.isEmpty) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "empty file")
+        val k = if (kind == "serverlist") "serverlist" else "consent"
+        val fld = folder?.trim().orEmpty().ifEmpty { System.currentTimeMillis().toString(36) }.replace(Regex("[^A-Za-z0-9_-]"), "_")
+        val filename = (file.originalFilename ?: "file").substringAfterLast('/').substringAfterLast('\\').ifEmpty { "file" }
+        val safeName = filename.replace(Regex("[\\\\/\\r\\n\\t]+"), "_").replace(Regex("\\s+"), "_")
+        val contentType = file.contentType?.trim()?.ifEmpty { null } ?: "application/octet-stream"
+        val key = "$FIREWALL_PREFIX/$fld/$k-$safeName"
+        r2.putObject(key, file.bytes, contentType)
+        return mapOf(
+            "kind" to k,
+            "filename" to filename,
+            "objectKey" to key,
+            "contentType" to contentType,
+            "sizeBytes" to file.size,
+            "publicUrl" to r2.publicUrl(key),
+        )
+    }
+
     // 신청 작성 — IP/PORT 필수, 고객사동의서(consent) 첨부 1개 이상 필수.
     // 파일은 앱이 R2 에 먼저 올리고 objectKey 만 넘긴다(서버는 메타만 저장).
     @PostMapping
