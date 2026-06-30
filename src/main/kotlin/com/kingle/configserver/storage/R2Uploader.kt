@@ -1,4 +1,4 @@
-package com.kingle.configserver.firewall
+package com.kingle.configserver.storage
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
