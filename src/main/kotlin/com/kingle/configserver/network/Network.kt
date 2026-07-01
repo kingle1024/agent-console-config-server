@@ -34,6 +34,10 @@ class NetworkMember(
     @Column(name = "vpn_id", length = 100)
     var vpnId: String? = null,
 
+    // 신청서 포함 여부(false 면 신청서 표/결재에서 제외). null/미지정(기존 데이터)은 포함(true)으로 본다.
+    @Column(name = "included")
+    var included: Boolean? = null,
+
     // 화면 표시 순서(작을수록 위). 그리드 순서 보존용.
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0,
