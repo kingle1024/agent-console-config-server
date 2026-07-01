@@ -24,6 +24,7 @@ data class FileReq(
     val sizeBytes: Long? = null,
 )
 data class CreateFirewallReq(
+    val customer: String? = null,
     val ip: String? = null,
     val port: String? = null,
     val reporter: String? = null,
@@ -44,6 +45,7 @@ data class FileDto(
 )
 data class FwSummaryDto(
     val id: Long,
+    val customer: String,
     val ip: String,
     val port: String,
     val reporter: String,
@@ -54,6 +56,7 @@ data class FwSummaryDto(
 )
 data class FwDetailDto(
     val id: Long,
+    val customer: String,
     val ip: String,
     val port: String,
     val reporter: String,
@@ -114,6 +117,7 @@ class FirewallController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "consent file required")
         }
         val r = FirewallRequest(
+            customer = req.customer?.trim()?.ifEmpty { null },
             ip = ip,
             port = port,
             reporter = req.reporter?.trim().orEmpty().ifEmpty { "unknown" },
@@ -171,6 +175,7 @@ class FirewallController(
 
 private fun FirewallRequest.toSummary(fileCount: Long) = FwSummaryDto(
     id = id!!,
+    customer = customer ?: "",
     ip = ip,
     port = port,
     reporter = reporter,
@@ -182,6 +187,7 @@ private fun FirewallRequest.toSummary(fileCount: Long) = FwSummaryDto(
 
 private fun FirewallRequest.toDetail(fs: List<FirewallFile>) = FwDetailDto(
     id = id!!,
+    customer = customer ?: "",
     ip = ip,
     port = port,
     reporter = reporter,
