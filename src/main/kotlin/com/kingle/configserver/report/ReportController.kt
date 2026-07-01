@@ -24,6 +24,7 @@ data class CreateReq(
 )
 data class CommentReq(val author: String? = null, val role: String? = null, val body: String? = null)
 data class StatusReq(val status: String? = null)
+data class DeleteReq(val reporter: String? = null, val admin: Boolean? = null)
 
 data class SummaryDto(
     val id: Long,
@@ -123,6 +124,23 @@ class ReportController(
         r.status = s
         r.updatedAt = LocalDateTime.now()
         reports.save(r)
+        return mapOf("ok" to true)
+    }
+
+    // 삭제 — 작성자 본인이 (아직 답변이 없거나 '접수' 상태일 때) 스스로 삭제. 관리자는 제한 없이 삭제.
+    // ★POST★ 로 받는다: cloudtype 프록시가 DELETE 를 막는 환경이 있어 상태변경과 동일하게 POST 로 통일.
+    @PostMapping("/{id}/delete")
+    fun delete(@PathVariable id: Long, @RequestBody(required = false) req: DeleteReq?): Map<String, Any?> {
+        val r = reports.findById(id).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "not found") }
+        val hasAdminReply = comments.findByReportIdOrderByCreatedAtAsc(id).any { it.role == "admin" }
+        val isAdmin = req?.admin == true
+        val requester = req?.reporter?.trim().orEmpty()
+        val isOwner = requester.isNotEmpty() && requester == r.reporter
+        // 삭제 가능: 관리자거나, (본인 글이면서 아직 관리자 답변이 없거나 '접수' 상태)
+        val deletable = isAdmin || (isOwner && (r.status == "접수" || !hasAdminReply))
+        if (!deletable) throw ResponseStatusException(HttpStatus.FORBIDDEN, "not deletable")
+        comments.deleteByReportId(id)
+        reports.delete(r)
         return mapOf("ok" to true)
     }
 }
