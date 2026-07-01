@@ -17,6 +17,10 @@ class FirewallRequest(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 
+    // 고객사 이름(결재 문서 제목 접두 [<고객사>]). 신청 시 필수 입력. 기존 데이터는 null.
+    @Column(length = 200)
+    var customer: String? = null,
+
     // 신청 IP(여러 개면 콤마/줄바꿈 포함 문자열 그대로)
     @Column(length = 300, nullable = false)
     var ip: String = "",
