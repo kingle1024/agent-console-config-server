@@ -2,10 +2,13 @@ package com.kingle.configserver.network
 
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
+import org.springframework.http.HttpStatus
 import java.time.LocalDateTime
 
 // 요청/응답 DTO
@@ -36,6 +39,7 @@ data class SaveServersReq(val servers: List<ServerDto>? = null)
 class NetworkController(
     private val members: NetworkMemberRepository,
     private val servers: NetworkServerRepository,
+    private val presets: NetworkServerPresetRepository,
 ) {
     @GetMapping("/members")
     fun listMembers(): List<Map<String, Any?>> =
@@ -91,6 +95,44 @@ class NetworkController(
         if (entities.isNotEmpty()) servers.saveAll(entities)
         return mapOf("saved" to entities.size)
     }
+
+    // ── 신청 대상 즐겨찾기(프리셋) — key(예: new_hire) 단위 목록 조회 + 전체 교체 저장 ──
+    private fun presetKey(raw: String): String {
+        val k = raw.trim().lowercase()
+        if (k.isEmpty() || k.length > 40 || !k.all { it in 'a'..'z' || it in '0'..'9' || it == '_' || it == '-' }) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid preset key")
+        }
+        return k
+    }
+
+    @GetMapping("/presets/{key}/servers")
+    fun listPresetServers(@PathVariable key: String): List<Map<String, Any?>> =
+        presets.findAllByPresetKeyOrderBySortOrderAscIdAsc(presetKey(key)).map { it.toMap() }
+
+    @PostMapping("/presets/{key}/servers")
+    @Transactional
+    fun savePresetServers(@PathVariable key: String, @RequestBody req: SaveServersReq): Map<String, Any?> {
+        val k = presetKey(key)
+        val incoming = req.servers.orEmpty()
+        presets.deleteAllByPresetKey(k)
+        val now = LocalDateTime.now()
+        val entities = incoming.mapIndexedNotNull { idx, s ->
+            val ip = s.ip?.trim().orEmpty().take(60)
+            val nm = s.name?.trim().orEmpty().take(200)
+            val port = s.port?.trim().orEmpty().take(300)
+            if (ip.isEmpty() && nm.isEmpty() && port.isEmpty()) return@mapIndexedNotNull null
+            NetworkServerPreset(
+                presetKey = k,
+                ip = ip,
+                name = nm,
+                port = port,
+                sortOrder = idx,
+                updatedAt = now,
+            )
+        }
+        if (entities.isNotEmpty()) presets.saveAll(entities)
+        return mapOf("saved" to entities.size)
+    }
 }
 
 private fun NetworkMember.toMap(): Map<String, Any?> = mapOf(
@@ -103,6 +145,13 @@ private fun NetworkMember.toMap(): Map<String, Any?> = mapOf(
 )
 
 private fun NetworkServer.toMap(): Map<String, Any?> = mapOf(
+    "id" to id,
+    "ip" to ip,
+    "name" to name,
+    "port" to port,
+)
+
+private fun NetworkServerPreset.toMap(): Map<String, Any?> = mapOf(
     "id" to id,
     "ip" to ip,
     "name" to name,

@@ -46,6 +46,36 @@ class NetworkMember(
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 )
 
+// 신청 대상 서버 즐겨찾기(프리셋) 1행 — presetKey 로 묶인 IP/시스템명/PORT 세트.
+// [신규 입사](new_hire) 같은 자주 쓰는 신청 대상 조합을 저장해 두고 버튼 한 번으로 그리드에 채운다.
+// 현재 그리드(network_server)와 별개 테이블이라 프리셋을 불러와도 원본 즐겨찾기는 유지된다.
+@Entity
+@Table(name = "network_server_preset")
+class NetworkServerPreset(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Long? = null,
+
+    // 프리셋 식별 키(예: new_hire). 소문자/숫자/_- 만 허용.
+    @Column(name = "preset_key", length = 40, nullable = false)
+    var presetKey: String = "",
+
+    @Column(length = 60, nullable = false)
+    var ip: String = "",
+
+    @Column(length = 200, nullable = false)
+    var name: String = "",
+
+    @Column(length = 300, nullable = false)
+    var port: String = "",
+
+    @Column(name = "sort_order", nullable = false)
+    var sortOrder: Int = 0,
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
+)
+
 // 신청 대상 서버 1대 — 도착지 IP + 시스템명 + PORT 목록.
 // (구 gpt.html 의 ipData. 신청서 표에서 각 서버마다 유선/VPN/무선 3행을 만든다.)
 @Entity
