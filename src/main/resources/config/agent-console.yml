@@ -25,6 +25,11 @@ nsmAuth:
 tokens:
   jenkinsUser: '{cipher}a123a8e56de19f3cb63457dc1a65ff886e480efcfd8dfd338c9d7b76a473b7b5'
   jenkinsPassword: '{cipher}6178f759a0063433ca57fbfc20fb329f7c8db2946a4b13036ec939103553926b'
+# DRS(drs.comet.duzon.net) 로그인 계정 — Job 등록 요청 조회/등록/삭제의 토큰 자동 재발급용.
+# 팀 공용 계정 하나뿐이라 앱에 번들하지 않고 여기서만 배포(앱 UI 에는 입력창 없음).
+drsAuth:
+  username: '{cipher}f3579c7e1bd933dbf1b2ed4d7ef5212f7c8936209d8cd086e02ae5f85afc53a7'
+  password: '{cipher}761f12a52f50f7a30a91d0e2c5bbf65ff9390d5580b8d604cd591052d66d2bac'
 # 개선/오류 리포트 API — 앱이 config-server 의 /api/reports 를 호출할 때 쓰는 키/관리자.
 #  apiKey   : X-Api-Key 헤더로 전송 → 서버의 REPORTS_API_KEY(환경변수)와 ★같은 값★이어야 함.
 #             아래 PLACEHOLDER 를 실제 키의 {cipher} 암호문으로 교체:
