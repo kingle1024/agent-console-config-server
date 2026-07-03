@@ -9,3 +9,8 @@ interface NetworkMemberRepository : JpaRepository<NetworkMember, Long> {
 interface NetworkServerRepository : JpaRepository<NetworkServer, Long> {
     fun findAllByOrderBySortOrderAscIdAsc(): List<NetworkServer>
 }
+
+interface NetworkServerPresetRepository : JpaRepository<NetworkServerPreset, Long> {
+    fun findAllByPresetKeyOrderBySortOrderAscIdAsc(presetKey: String): List<NetworkServerPreset>
+    fun deleteAllByPresetKey(presetKey: String)
+}
