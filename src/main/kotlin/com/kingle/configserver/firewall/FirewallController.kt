@@ -27,6 +27,7 @@ data class CreateFirewallReq(
     val customer: String? = null,
     val ip: String? = null,
     val port: String? = null,
+    val note: String? = null,
     val reporter: String? = null,
     val reporterUserId: String? = null,
     val appVersion: String? = null,
@@ -34,6 +35,8 @@ data class CreateFirewallReq(
     val files: List<FileReq>? = null,
 )
 data class FwStatusReq(val status: String? = null)
+// 관리자 IP/PORT/비고 수정(결재 상신 전 정정). null 필드는 미변경.
+data class FwUpdateReq(val ip: String? = null, val port: String? = null, val note: String? = null)
 
 data class FileDto(
     val id: Long,
@@ -59,6 +62,7 @@ data class FwDetailDto(
     val customer: String,
     val ip: String,
     val port: String,
+    val note: String?,
     val reporter: String,
     val reporterUserId: String?,
     val status: String,
@@ -120,6 +124,7 @@ class FirewallController(
             customer = req.customer?.trim()?.ifEmpty { null },
             ip = ip,
             port = port,
+            note = req.note?.trim()?.ifEmpty { null },
             reporter = req.reporter?.trim().orEmpty().ifEmpty { "unknown" },
             reporterUserId = req.reporterUserId?.trim()?.ifEmpty { null },
             appVersion = req.appVersion?.trim(),
@@ -171,6 +176,19 @@ class FirewallController(
         requests.save(r)
         return mapOf("ok" to true)
     }
+
+    // IP/PORT/비고 수정(관리자 — 결재 상신 전 정정용). 넘긴 필드만 반영, null 은 미변경.
+    // POST·PATCH·PUT 모두 허용(cloudtype 프록시가 PATCH/PUT 을 차단하는 환경 대비 — 앱은 POST 사용).
+    @RequestMapping("/{id}", method = [RequestMethod.POST, RequestMethod.PATCH, RequestMethod.PUT])
+    fun update(@PathVariable id: Long, @RequestBody req: FwUpdateReq): Map<String, Any?> {
+        val r = requests.findById(id).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "not found") }
+        req.ip?.trim()?.let { if (it.isNotEmpty()) r.ip = it }
+        req.port?.trim()?.let { if (it.isNotEmpty()) r.port = it }
+        if (req.note != null) r.note = req.note.trim().ifEmpty { null }
+        r.updatedAt = LocalDateTime.now()
+        requests.save(r)
+        return mapOf("ok" to true)
+    }
 }
 
 private fun FirewallRequest.toSummary(fileCount: Long) = FwSummaryDto(
@@ -190,6 +208,7 @@ private fun FirewallRequest.toDetail(fs: List<FirewallFile>) = FwDetailDto(
     customer = customer ?: "",
     ip = ip,
     port = port,
+    note = note,
     reporter = reporter,
     reporterUserId = reporterUserId,
     status = status,
