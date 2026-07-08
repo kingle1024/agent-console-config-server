@@ -29,6 +29,10 @@ class FirewallRequest(
     @Column(length = 300, nullable = false)
     var port: String = "",
 
+    // 신청자가 남긴 비고(자유 입력, 선택). 관리자·결재 참고용. 기존 데이터는 null.
+    @Column(length = 1000)
+    var note: String? = null,
+
     // 신청자(작업대상 개발사원 사번 — 목록 필터/표시용). report.reporter 와 동일 개념.
     @Column(length = 100, nullable = false)
     var reporter: String = "",
