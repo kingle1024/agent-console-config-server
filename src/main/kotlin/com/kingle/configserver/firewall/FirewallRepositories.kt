@@ -15,3 +15,7 @@ interface FirewallFileRepository : JpaRepository<FirewallFile, Long> {
 interface FirewallApprovalRepository : JpaRepository<FirewallApproval, Long> {
     fun findTop1000ByOrderByCreatedAtDesc(): List<FirewallApproval>
 }
+
+interface FirewallCustomerEndRepository : JpaRepository<FirewallCustomerEnd, Long> {
+    fun findByCustomer(customer: String): FirewallCustomerEnd?
+}

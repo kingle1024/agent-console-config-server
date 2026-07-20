@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
 // 방화벽 신청 1건. IP/PORT + 첨부파일(고객사동의서 필수, 서버리스트 선택)은 별도 테이블(FirewallFile).
@@ -60,6 +61,30 @@ class FirewallRequest(
 
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
+)
+
+// 고객사별 방화벽 종료 기간 1건(customer 당 1행 upsert). 관리자가 신청을 '완료'로 바꿀 때 자동 기록되고,
+// [고객사 정보 검색] 상세에서 모든 사용자가 조회/수기 수정한다.
+@Entity
+@Table(name = "firewall_customer_end", uniqueConstraints = [UniqueConstraint(columnNames = ["customer"])])
+class FirewallCustomerEnd(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Long? = null,
+
+    @Column(length = 200, nullable = false)
+    var customer: String = "",
+
+    // 방화벽 정책 종료일 "YYYY-MM-DD"
+    @Column(name = "end_date", length = 20, nullable = false)
+    var endDate: String = "",
+
+    // 마지막 수정자(로그인 ID 또는 이름) — 수기 수정 추적용
+    @Column(name = "updated_by", length = 100)
+    var updatedBy: String? = null,
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now(),
