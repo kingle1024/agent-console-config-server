@@ -28,6 +28,8 @@ data class CreateFirewallReq(
     val ip: String? = null,
     val port: String? = null,
     val note: String? = null,
+    val members: String? = null,
+    val sysNames: String? = null,
     val reporter: String? = null,
     val reporterUserId: String? = null,
     val appVersion: String? = null,
@@ -35,8 +37,14 @@ data class CreateFirewallReq(
     val files: List<FileReq>? = null,
 )
 data class FwStatusReq(val status: String? = null)
-// 관리자 IP/PORT/비고 수정(결재 상신 전 정정). null 필드는 미변경.
-data class FwUpdateReq(val ip: String? = null, val port: String? = null, val note: String? = null)
+// 관리자 IP/PORT/비고/구성원/시스템 수정(결재 상신 전 정정). null 필드는 미변경.
+data class FwUpdateReq(
+    val ip: String? = null,
+    val port: String? = null,
+    val note: String? = null,
+    val members: String? = null,
+    val sysNames: String? = null,
+)
 
 data class FileDto(
     val id: Long,
@@ -63,6 +71,8 @@ data class FwDetailDto(
     val ip: String,
     val port: String,
     val note: String?,
+    val members: String?,
+    val sysNames: String?,
     val reporter: String,
     val reporterUserId: String?,
     val status: String,
@@ -125,6 +135,8 @@ class FirewallController(
             ip = ip,
             port = port,
             note = req.note?.trim()?.ifEmpty { null },
+            members = req.members?.trim()?.ifEmpty { null },
+            sysNames = req.sysNames?.trim()?.ifEmpty { null },
             reporter = req.reporter?.trim().orEmpty().ifEmpty { "unknown" },
             reporterUserId = req.reporterUserId?.trim()?.ifEmpty { null },
             appVersion = req.appVersion?.trim(),
@@ -185,6 +197,8 @@ class FirewallController(
         req.ip?.trim()?.let { if (it.isNotEmpty()) r.ip = it }
         req.port?.trim()?.let { if (it.isNotEmpty()) r.port = it }
         if (req.note != null) r.note = req.note.trim().ifEmpty { null }
+        if (req.members != null) r.members = req.members.trim().ifEmpty { null }
+        if (req.sysNames != null) r.sysNames = req.sysNames.trim().ifEmpty { null }
         r.updatedAt = LocalDateTime.now()
         requests.save(r)
         return mapOf("ok" to true)
@@ -209,6 +223,8 @@ private fun FirewallRequest.toDetail(fs: List<FirewallFile>) = FwDetailDto(
     ip = ip,
     port = port,
     note = note,
+    members = members,
+    sysNames = sysNames,
     reporter = reporter,
     reporterUserId = reporterUserId,
     status = status,

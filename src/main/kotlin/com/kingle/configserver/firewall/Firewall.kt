@@ -33,6 +33,14 @@ class FirewallRequest(
     @Column(length = 1000)
     var note: String? = null,
 
+    // 신청 구성원 이름 목록(콤마 구분, 예: "김인영,엄지용"). null/빈 값 = 부서원 전체(기본).
+    @Column(length = 2000)
+    var members: String? = null,
+
+    // 도착지 IP별 시스템 구분(AP/DB 등). IP 순서대로 '|' 구분(예: "AP | DB"). 기존 데이터는 null.
+    @Column(name = "sys_names", length = 500)
+    var sysNames: String? = null,
+
     // 신청자(작업대상 개발사원 사번 — 목록 필터/표시용). report.reporter 와 동일 개념.
     @Column(length = 100, nullable = false)
     var reporter: String = "",
