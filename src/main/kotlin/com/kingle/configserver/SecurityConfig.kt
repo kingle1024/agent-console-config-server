@@ -19,6 +19,9 @@ class SecurityConfig {
 				it.requestMatchers("/actuator/health", "/actuator/info").permitAll()
 				// 리포트·방화벽신청·에러로그·사용로그·쪽지 API 는 X-Api-Key 필터(ReportApiSecurity)로 별도 보호 → Basic 인증 제외
 				it.requestMatchers("/api/reports/**", "/api/firewalls/**", "/api/errorlogs/**", "/api/usagelogs/**", "/api/memo/**", "/api/bakery/**", "/api/network/**", "/api/meal/**").permitAll()
+				// 오류 디스패치(/error)를 막으면 permitAll API 의 404/400/500 이 전부 빈 401 로 둔갑해
+				// 클라이언트가 "인증 실패"로 오판한다(실측: /api/firewalls/99999 → 401). 상태코드 보존을 위해 공개.
+				it.requestMatchers("/error").permitAll()
 				it.anyRequest().authenticated()
 			}
 			.httpBasic { }
