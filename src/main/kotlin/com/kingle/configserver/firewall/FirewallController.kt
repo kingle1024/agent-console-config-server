@@ -37,6 +37,8 @@ data class CreateFirewallReq(
     val files: List<FileReq>? = null,
 )
 data class FwStatusReq(val status: String? = null)
+// 고객사별 방화벽 종료 기간 upsert 요청. endDate 빈 값 = 해당 고객사 기록 삭제.
+data class FwEndDateReq(val customer: String? = null, val endDate: String? = null, val updatedBy: String? = null)
 // 관리자 IP/PORT/비고/구성원/시스템 수정(결재 상신 전 정정). null 필드는 미변경.
 data class FwUpdateReq(
     val ip: String? = null,
@@ -90,8 +92,50 @@ private const val FIREWALL_PREFIX = "firewall"
 class FirewallController(
     private val requests: FirewallRequestRepository,
     private val files: FirewallFileRepository,
+    private val endDates: FirewallCustomerEndRepository,
     private val r2: R2Uploader,
 ) {
+    // 고객사별 방화벽 종료 기간 조회 — customer 지정 시 1건(없으면 endDate=""), 미지정 시 전체.
+    // 관리자 게이트 없음: [고객사 정보 검색]에서 모든 사용자가 보고 수기 수정할 수 있어야 한다.
+    @GetMapping("/enddates")
+    fun endDateGet(@RequestParam(required = false) customer: String?): Any {
+        if (customer.isNullOrBlank()) {
+            return endDates.findAll().map {
+                mapOf("customer" to it.customer, "endDate" to it.endDate, "updatedBy" to it.updatedBy, "updatedAt" to it.updatedAt.toString())
+            }
+        }
+        val r = endDates.findByCustomer(customer.trim())
+        return mapOf(
+            "customer" to customer.trim(),
+            "endDate" to (r?.endDate ?: ""),
+            "updatedBy" to r?.updatedBy,
+            "updatedAt" to r?.updatedAt?.toString(),
+        )
+    }
+
+    // 고객사별 방화벽 종료 기간 upsert — 관리자가 신청을 '완료'로 바꿀 때 자동 기록 + 누구나 수기 수정.
+    // endDate 빈 값이면 기록 삭제(초기화).
+    @PostMapping("/enddates")
+    fun endDateSet(@RequestBody req: FwEndDateReq): Map<String, Any?> {
+        val customer = req.customer?.trim().orEmpty()
+        if (customer.isEmpty()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "customer required")
+        val endDate = req.endDate?.trim().orEmpty()
+        val existing = endDates.findByCustomer(customer)
+        if (endDate.isEmpty()) {
+            if (existing != null) endDates.delete(existing)
+            return mapOf("ok" to true, "deleted" to (existing != null))
+        }
+        if (!Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(endDate)) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must be YYYY-MM-DD")
+        }
+        val r = existing ?: FirewallCustomerEnd(customer = customer)
+        r.endDate = endDate
+        r.updatedBy = req.updatedBy?.trim()?.ifEmpty { null }
+        r.updatedAt = LocalDateTime.now()
+        endDates.save(r)
+        return mapOf("ok" to true, "customer" to customer, "endDate" to endDate)
+    }
+
     // 첨부 업로드 — 앱이 파일 바이트를 multipart 로 보내면 서버가 R2 에 올린다(쓰기 키는 서버에만).
     // 반환 objectKey 를 앱이 받아 create 의 files[] 에 넣는다. consent/serverlist 가 같은 folder 를 공유한다.
     @PostMapping("/upload", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
