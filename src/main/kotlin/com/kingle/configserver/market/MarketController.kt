@@ -45,6 +45,17 @@ data class MarketItemDto(
     val requests: List<MarketRequestDto>,
 )
 
+// 명예의 전당 — 구매완료(SOLD) 건을 구매자별로 집계한 순위 1행.
+data class MarketHallOfFameDto(
+    val rank: Int,
+    val userId: String,
+    val empNo: String,
+    val nm: String?,
+    val boughtCount: Int, // 구매완료(승인받은) 건수 — 순위 기준
+    val soldCount: Int, // 같은 사람이 판 건수(참고용)
+    val lastBoughtAt: String?,
+)
+
 // 내가 구매요청 탭 — 요청 + 대상 물건을 함께 내려준다.
 data class MarketMyRequestDto(
     val request: MarketRequestDto,
@@ -236,6 +247,33 @@ class MarketController(
         req.updatedAt = LocalDateTime.now()
         requests.save(req)
         return mapOf("ok" to true)
+    }
+
+    // 명예의 전당 — 많이 구매한 사람 순위. 구매완료(SOLD) 물건을 구매자(buyerUserId)별로 집계한다.
+    // 동수면 최근에 산 사람이 위로. 구매자 정보가 없는(승인 전) 물건은 집계 대상이 아니다.
+    @GetMapping("/halloffame")
+    fun hallOfFame(): List<MarketHallOfFameDto> {
+        val sold = items.findByStatusOrderByCreatedAtDesc("SOLD")
+        val soldBySeller = sold.groupingBy { it.sellerUserId }.eachCount()
+        return sold
+            .filter { !it.buyerUserId.isNullOrBlank() }
+            .groupBy { it.buyerUserId!! }
+            .map { (userId, list) ->
+                MarketHallOfFameDto(
+                    rank = 0,
+                    userId = userId,
+                    empNo = list.firstNotNullOfOrNull { it.buyerEmpNo?.ifBlank { null } }.orEmpty(),
+                    nm = list.firstNotNullOfOrNull { it.buyerNm?.ifBlank { null } },
+                    boughtCount = list.size,
+                    soldCount = soldBySeller[userId] ?: 0,
+                    lastBoughtAt = list.maxOfOrNull { it.updatedAt }?.toString(),
+                )
+            }
+            .sortedWith(
+                compareByDescending<MarketHallOfFameDto> { it.boughtCount }
+                    .thenByDescending { it.lastBoughtAt.orEmpty() },
+            )
+            .mapIndexed { i, d -> d.copy(rank = i + 1) }
     }
 
     // 내가 구매요청 탭 — 내 요청(요청중/승인=구매완료/거절/취소) + 대상 물건.
