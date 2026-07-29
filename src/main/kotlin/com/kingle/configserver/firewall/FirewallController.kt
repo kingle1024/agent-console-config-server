@@ -34,6 +34,8 @@ data class CreateFirewallReq(
     val reporterUserId: String? = null,
     val appVersion: String? = null,
     val osInfo: String? = null,
+    // 내부 서버 신청 — 고객사동의서(consent) 없이도 접수한다(앱의 [내부 서버] 체크).
+    val internal: Boolean? = null,
     val files: List<FileReq>? = null,
 )
 data class FwStatusReq(val status: String? = null)
@@ -162,7 +164,7 @@ class FirewallController(
         )
     }
 
-    // 신청 작성 — IP/PORT 필수, 고객사동의서(consent) 첨부 1개 이상 필수.
+    // 신청 작성 — IP/PORT 필수, 고객사동의서(consent) 첨부 1개 이상 필수(internal=true 면 생략).
     // 파일은 앱이 R2 에 먼저 올리고 objectKey 만 넘긴다(서버는 메타만 저장).
     @PostMapping
     fun create(@RequestBody req: CreateFirewallReq): Map<String, Any?> {
@@ -171,7 +173,7 @@ class FirewallController(
         if (ip.isEmpty()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "ip required")
         if (port.isEmpty()) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "port required")
         val incoming = req.files.orEmpty().filter { !it.objectKey.isNullOrBlank() }
-        if (incoming.none { it.kind == "consent" }) {
+        if (req.internal != true && incoming.none { it.kind == "consent" }) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "consent file required")
         }
         val r = FirewallRequest(
