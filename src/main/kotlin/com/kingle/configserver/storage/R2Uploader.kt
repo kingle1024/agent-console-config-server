@@ -89,18 +89,20 @@ class R2Uploader(
             .header("Authorization", authorization)
             .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
             .build()
+        // R2 실패는 424(FAILED_DEPENDENCY)로 — 5xx 를 내면 cloudtype 프록시가 body 를 "5xx json" 으로
+        // 덮어써 클라이언트가 원인 메시지를 영영 못 본다(한글 괄호 파일명 502 장애 때 진단을 막았던 원인).
         val resp: HttpResponse<String>
         try {
             resp = http.send(req, HttpResponse.BodyHandlers.ofString(Charsets.UTF_8))
         } catch (e: Exception) {
-            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "R2 연결 실패: ${e.message}")
+            throw ResponseStatusException(HttpStatus.FAILED_DEPENDENCY, "R2 연결 실패: ${e.message}")
         }
         val sc = resp.statusCode()
         if (sc == 401 || sc == 403) {
-            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "R2 인증 실패(HTTP $sc) — AccessKey/Secret 또는 버킷 권한 확인")
+            throw ResponseStatusException(HttpStatus.FAILED_DEPENDENCY, "R2 인증 실패(HTTP $sc) — AccessKey/Secret 또는 버킷 권한 확인")
         }
         if (sc < 200 || sc >= 300) {
-            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "R2 업로드 오류(HTTP $sc): ${resp.body().take(200)}")
+            throw ResponseStatusException(HttpStatus.FAILED_DEPENDENCY, "R2 업로드 오류(HTTP $sc): ${resp.body().take(200)}")
         }
     }
 
@@ -115,7 +117,9 @@ class R2Uploader(
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
-    // JS encodeURIComponent 와 동일 규칙(unreserved 외 UTF-8 바이트 %XX). S3 키에 한글 파일명이 와도 안전.
+    // AWS SigV4 URI 인코딩 규칙: unreserved(A-Za-z0-9 - _ . ~) 외 UTF-8 바이트 전부 %XX.
+    // ★JS encodeURIComponent 가 남기는 !*'() 도 반드시 인코딩해야 한다★ — raw 로 보내면 R2 가
+    // SignatureDoesNotMatch(403)를 내서 "한글 (괄호)" 류 파일명 업로드가 통째로 죽는다(2026-08-13 실측).
     private fun encURIComponent(s: String): String {
         val sb = StringBuilder()
         for (b in s.toByteArray(Charsets.UTF_8)) {
@@ -127,7 +131,7 @@ class R2Uploader(
 
     companion object {
         private const val UNRESERVED =
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
         private val AMZ_DATE: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC)
     }
