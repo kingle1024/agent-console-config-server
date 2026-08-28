@@ -33,6 +33,6 @@ class ReportApiSecurity(
                 }
                 return true
             }
-        }).addPathPatterns("/api/reports/**", "/api/firewalls/**", "/api/errorlogs/**", "/api/usagelogs/**", "/api/memo/**", "/api/bakery/**", "/api/network/**", "/api/meal/**", "/api/market/**", "/api/relays/**", "/api/menucache/**", "/api/menuadmins/**")
+        }).addPathPatterns("/api/reports/**", "/api/firewalls/**", "/api/errorlogs/**", "/api/usagelogs/**", "/api/memo/**", "/api/bakery/**", "/api/network/**", "/api/meal/**", "/api/market/**", "/api/custalias/**", "/api/relays/**", "/api/menucache/**", "/api/menuadmins/**")
     }
 }
