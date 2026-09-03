@@ -1,5 +1,6 @@
 package com.kingle.configserver.calendar
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import org.springframework.http.HttpStatus
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
@@ -32,7 +33,9 @@ data class CalendarDto(
     val color: String,
     val ownerUserId: String,
     val ownerNm: String?,
-    val isDefault: Boolean,
+    // ★JSON 이름을 못 박는다★ — 코틀린 is 접두 프로퍼티를 잭슨이 그냥 두면 "default" 로 나가서
+    // 앱(renderer)의 isDefault 판정이 조용히 undefined 가 된다(기본 캘린더에 삭제 버튼이 뜨던 원인).
+    @get:JsonProperty("isDefault") val isDefault: Boolean,
     val mine: Boolean,
     val role: String,
     val shares: List<ShareDto>,
