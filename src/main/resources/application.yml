@@ -1,4 +1,8 @@
 server:
+  error:
+    # 앱이 서버가 준 한글 사유(ResponseStatusException reason)를 그대로 보여주도록 message 를 응답에 포함.
+    # (기본값 never 면 4xx 응답이 사유 없는 {status,error} 만 되어 "실패: " 로만 표시된다)
+    include-message: always
   # cloudtype 등은 PORT 환경변수를 주입 → 없으면 8888
   port: ${PORT:8888}
 
