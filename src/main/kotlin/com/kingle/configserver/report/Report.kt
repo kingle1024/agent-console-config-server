@@ -71,3 +71,33 @@ class ReportComment(
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
 )
+
+// 리포트 첨부파일 1건. 파일 바이트는 R2(reports/<폴더>/<파일명>)에 있고, objectKey 로 공개 URL 을 구성해 열람한다.
+// (방화벽 신청의 FirewallFile 과 같은 구조 — kind 구분만 없다.)
+@Entity
+@Table(name = "report_file")
+class ReportFile(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Long? = null,
+
+    @Column(name = "report_id", nullable = false)
+    var reportId: Long = 0,
+
+    // 사용자에게 보여줄 원본 파일명
+    @Column(length = 300, nullable = false)
+    var filename: String = "",
+
+    // R2 객체 키(예: reports/<폴더>/xxx.png)
+    @Column(name = "object_key", length = 500, nullable = false)
+    var objectKey: String = "",
+
+    @Column(name = "content_type", length = 120)
+    var contentType: String? = null,
+
+    @Column(name = "size_bytes")
+    var sizeBytes: Long? = null,
+
+    @Column(name = "created_at", nullable = false)
+    var createdAt: LocalDateTime = LocalDateTime.now(),
+)
