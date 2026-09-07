@@ -16,3 +16,11 @@ interface ReportCommentRepository : JpaRepository<ReportComment, Long> {
     @Transactional
     fun deleteByReportId(reportId: Long)
 }
+
+interface ReportFileRepository : JpaRepository<ReportFile, Long> {
+    fun findByReportIdOrderByIdAsc(reportId: Long): List<ReportFile>
+    fun countByReportId(reportId: Long): Long
+
+    @Transactional
+    fun deleteByReportId(reportId: Long)
+}
