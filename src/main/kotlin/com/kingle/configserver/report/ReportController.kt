@@ -56,7 +56,7 @@ data class SummaryDto(
     val createdAt: String,
     val updatedAt: String,
 )
-data class CommentDto(val author: String, val role: String, val body: String, val createdAt: String)
+data class CommentDto(val id: Long, val author: String, val role: String, val body: String, val createdAt: String)
 data class DetailDto(
     val id: Long,
     val type: String,
@@ -174,6 +174,25 @@ class ReportController(
         return mapOf("ok" to true)
     }
 
+    // 댓글 1건 삭제(슈퍼관리자 전용) — 오탈자·중복 답변 정리용. 리포트 본문은 그대로 두고 그 댓글만 지운다.
+    // ★POST★ 로 받는다: cloudtype 프록시가 DELETE 를 막는 환경이 있어 리포트 삭제/상태변경과 동일하게 POST 로 통일.
+    @PostMapping("/{id}/comments/{commentId}/delete")
+    fun deleteComment(
+        @PathVariable id: Long,
+        @PathVariable commentId: Long,
+        @RequestBody(required = false) req: DeleteReq?,
+    ): Map<String, Any?> {
+        if (req?.admin != true) throw ResponseStatusException(HttpStatus.FORBIDDEN, "admin only")
+        val r = reports.findById(id).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "not found") }
+        val c = comments.findById(commentId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "comment not found") }
+        // 경로의 리포트에 달린 댓글이 맞는지 확인 — 다른 리포트 댓글 ID 로 지우는 것을 막는다.
+        if (c.reportId != id) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "comment does not belong to report")
+        comments.delete(c)
+        r.updatedAt = LocalDateTime.now()
+        reports.save(r)
+        return mapOf("ok" to true)
+    }
+
     // 상태 변경(관리자) — 접수/처리중/완료.
     // ★POST·PATCH 둘 다 허용★: cloudtype 프록시가 PATCH 를 막는 환경이 있어 앱은 POST 로 보낸다(하위호환).
     @RequestMapping("/{id}/status", method = [RequestMethod.POST, RequestMethod.PATCH])
@@ -228,6 +247,6 @@ private fun Report.toDetail(cs: List<ReportComment>, fs: List<ReportFileDto>) = 
     status = status,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt.toString(),
-    thread = cs.map { CommentDto(it.author, it.role, it.body, it.createdAt.toString()) },
+    thread = cs.map { CommentDto(it.id!!, it.author, it.role, it.body, it.createdAt.toString()) },
     attachments = fs,
 )

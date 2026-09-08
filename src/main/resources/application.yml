@@ -64,6 +64,16 @@ amaranth:
   access-token: ${AMARANT_ACCESS_TOKEN:}
   secret-key: ${AMARANT_SECRET_KEY:}
   group-seq: ${AMARANT_GROUP_SEQ:duzon}
+  # 첨부 포함 쪽지(/api/memo/attach)용 메신저 자격 — apiproxy(api02A03)는 첨부를 못 보내서 P076+P247 을 쓴다.
+  #  - enc-id/enc-pwd 는 ★DZEncrypt 로 미리 암호화한 로그인 자격★(메신저 설치 윈도우 PC 에서 1회 생성, 결정론적).
+  #  - emp-seq-map: P247 은 수신자를 사번으로 받는다. "로그인ID:사번" 을 콤마로 나열(앱이 준 값이 우선).
+  #  - 하나라도 비면 /api/memo/attach 가 503/409 → 앱이 본문에 다운로드 링크를 넣는 기존 경로로 폴백한다.
+  messenger:
+    login-id: ${AMARANTH_MESSENGER_LOGIN_ID:}
+    enc-id: ${AMARANTH_MESSENGER_ENC_ID:}
+    enc-pwd: ${AMARANTH_MESSENGER_ENC_PWD:}
+    k-num: ${AMARANTH_MESSENGER_K_NUM:3}
+    emp-seq-map: ${AMARANTH_MESSENGER_EMP_SEQ_MAP:}
 
 # {cipher} 복호화 키 — ★repo 에 두지 말고 환경변수 ENCRYPT_KEY 로만 주입★ (없으면 로컬 테스트 키)
 encrypt:
