@@ -38,6 +38,10 @@ class NetworkMember(
     @Column(name = "included")
     var included: Boolean? = null,
 
+    // 소속 부서(예: FI개발1Cell, FI개발2Cell). 신청서 표에서 부서별로 묶어 표시. null=앱 기본값 적용.
+    @Column(name = "dept", length = 100)
+    var dept: String? = null,
+
     // 화면 표시 순서(작을수록 위). 그리드 순서 보존용.
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0,
