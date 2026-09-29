@@ -19,6 +19,7 @@ data class MemberDto(
     val wirelessIp: String? = null,
     val vpnId: String? = null,
     val included: Boolean? = null,
+    val dept: String? = null,
 )
 data class SaveMembersReq(val members: List<MemberDto>? = null)
 
@@ -61,6 +62,7 @@ class NetworkController(
                 wirelessIp = m.wirelessIp?.trim()?.take(60)?.ifEmpty { null },
                 vpnId = m.vpnId?.trim()?.take(100)?.ifEmpty { null },
                 included = m.included ?: true,
+                dept = m.dept?.trim()?.take(100)?.ifEmpty { null },
                 sortOrder = idx,
                 updatedAt = now,
             )
@@ -142,6 +144,7 @@ private fun NetworkMember.toMap(): Map<String, Any?> = mapOf(
     "wirelessIp" to (wirelessIp ?: ""),
     "vpnId" to (vpnId ?: ""),
     "included" to (included ?: true),
+    "dept" to (dept ?: ""),
 )
 
 private fun NetworkServer.toMap(): Map<String, Any?> = mapOf(
