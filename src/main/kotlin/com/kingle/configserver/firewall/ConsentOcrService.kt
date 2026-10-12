@@ -77,30 +77,32 @@ class ConsentOcrService(
 
     private fun runSafely(requestId: Long) {
         val started = System.currentTimeMillis()
-        var error: String? = null
-        val status = try {
+        val outcome = try {
             process(requestId)
         } catch (e: Exception) {
             log.warn("consent OCR 실패 #{}: {}", requestId, e.toString())
-            error = e.toString()
-            ConsentOcrStatus.FAILED
+            OcrOutcome(ConsentOcrStatus.FAILED, e.toString())
         }
         val elapsed = System.currentTimeMillis() - started
-        saveStatus(requestId, status, listOfNotNull(error, "${elapsed}ms").joinToString(" · "))
-        log.info("consent OCR #{} {} ({}ms)", requestId, status, elapsed)
+        saveStatus(requestId, outcome.status, listOfNotNull(outcome.note, "${elapsed}ms").joinToString(" · "))
+        log.info("consent OCR #{} {} ({}ms)", requestId, outcome.status, elapsed)
     }
 
-    // 결과를 채우고 상태 문자열을 돌려준다(상태 저장은 runSafely 가 한 번에).
-    private fun process(requestId: Long): String {
+    // 상태 + 진단 메모(실패 사유 / 항목을 못 찾았을 때 읽은 글자 일부 — 관리자가 원인을 보게).
+    private data class OcrOutcome(val status: String, val note: String? = null)
+
+    // 결과를 채우고 상태를 돌려준다(상태 저장은 runSafely 가 한 번에).
+    private fun process(requestId: Long): OcrOutcome {
         val consent = files.findByRequestIdOrderByIdAsc(requestId).firstOrNull { it.kind == "consent" }
-            ?: return ConsentOcrStatus.NONE
-        val bytes = download(r2.publicUrl(consent.objectKey))
-        val period = ConsentPeriodParser.parse(extractText(bytes, consent.filename)) ?: return ConsentOcrStatus.NOT_FOUND
-        val r = requests.findById(requestId).orElse(null) ?: return ConsentOcrStatus.FAILED
+            ?: return OcrOutcome(ConsentOcrStatus.NONE)
+        val text = extractText(download(r2.publicUrl(consent.objectKey)), consent.filename)
+        val period = ConsentPeriodParser.parse(text)
+            ?: return OcrOutcome(ConsentOcrStatus.NOT_FOUND, "읽은 글자: " + text.replace(Regex("""\s+"""), " ").take(400))
+        val r = requests.findById(requestId).orElse(null) ?: return OcrOutcome(ConsentOcrStatus.FAILED, "신청 없음")
         r.consentPeriod = period.raw.ifEmpty { null }
         r.consentEndDate = period.endDate
         requests.save(r)
-        return ConsentOcrStatus.DONE
+        return OcrOutcome(ConsentOcrStatus.DONE)
     }
 
     private fun saveStatus(requestId: Long, status: String, note: String) {
