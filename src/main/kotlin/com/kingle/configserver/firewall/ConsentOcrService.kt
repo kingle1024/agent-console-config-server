@@ -58,7 +58,7 @@ class ConsentOcrService(
 
     private val maxPages = 3 // 동의서는 1~2쪽. 긴 문서를 통째로 OCR 하지 않게 상한
     private val renderWidthPx = 1800f // A4 가로 약 220dpi — kor 모델이 숫자·한글을 안정적으로 읽는 해상도
-    private val tesseractTimeoutSec = 90L
+    private val tesseractTimeoutSec = 240L // 소형 인스턴스(CPU 적음)에서 1쪽 OCR 이 수십 초~분 단위 — 비동기라 넉넉히
     private val imageExt = setOf("png", "jpg", "jpeg", "bmp", "gif", "webp", "tif", "tiff")
 
     /** 큐에 넣는다. 상태는 즉시 PENDING 으로 기록(상세 화면이 "읽는 중"을 표시). */
@@ -77,14 +77,17 @@ class ConsentOcrService(
 
     private fun runSafely(requestId: Long) {
         val started = System.currentTimeMillis()
+        var error: String? = null
         val status = try {
             process(requestId)
         } catch (e: Exception) {
             log.warn("consent OCR 실패 #{}: {}", requestId, e.toString())
+            error = e.toString()
             ConsentOcrStatus.FAILED
         }
-        saveStatus(requestId, status)
-        log.info("consent OCR #{} {} ({}ms)", requestId, status, System.currentTimeMillis() - started)
+        val elapsed = System.currentTimeMillis() - started
+        saveStatus(requestId, status, listOfNotNull(error, "${elapsed}ms").joinToString(" · "))
+        log.info("consent OCR #{} {} ({}ms)", requestId, status, elapsed)
     }
 
     // 결과를 채우고 상태 문자열을 돌려준다(상태 저장은 runSafely 가 한 번에).
@@ -100,9 +103,10 @@ class ConsentOcrService(
         return ConsentOcrStatus.DONE
     }
 
-    private fun saveStatus(requestId: Long, status: String) {
+    private fun saveStatus(requestId: Long, status: String, note: String) {
         val r = requests.findById(requestId).orElse(null) ?: return
         r.consentOcrStatus = status
+        r.consentOcrError = note.take(500)
         r.updatedAt = LocalDateTime.now()
         requests.save(r)
     }
@@ -152,16 +156,18 @@ class ConsentOcrService(
         val outTxt = Path.of("$outBase.txt")
         val cmd = mutableListOf(tesseractCmd, image.toString(), outBase.toString(), "-l", "kor", "--psm", "3")
         if (tessdataDir.isNotBlank()) cmd += listOf("--tessdata-dir", tessdataDir)
-        val pb = ProcessBuilder(cmd).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+        val procLog = Path.of("$outBase.log")
+        val pb = ProcessBuilder(cmd).redirectErrorStream(true).redirectOutput(procLog.toFile())
         pb.environment()["OMP_THREAD_LIMIT"] = "1"
         val proc = pb.start()
         try {
-            if (!proc.waitFor(tesseractTimeoutSec, TimeUnit.SECONDS)) throw IllegalStateException("tesseract 타임아웃")
-            if (proc.exitValue() != 0) throw IllegalStateException("tesseract 종료코드 ${proc.exitValue()}")
+            if (!proc.waitFor(tesseractTimeoutSec, TimeUnit.SECONDS)) throw IllegalStateException("tesseract 타임아웃(${tesseractTimeoutSec}초)")
+            if (proc.exitValue() != 0) throw IllegalStateException("tesseract 종료코드 ${proc.exitValue()}: ${Files.readString(procLog).take(300)}")
             return Files.readString(outTxt)
         } finally {
             proc.destroyForcibly()
             Files.deleteIfExists(outTxt)
+            Files.deleteIfExists(procLog)
         }
     }
 
