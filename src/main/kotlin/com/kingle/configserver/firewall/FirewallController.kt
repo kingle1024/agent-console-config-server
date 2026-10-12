@@ -37,6 +37,9 @@ data class CreateFirewallReq(
     // 내부 서버 신청 — 고객사동의서(consent) 없이도 접수한다(앱의 [내부 서버] 체크).
     val internal: Boolean? = null,
     val files: List<FileReq>? = null,
+    // 고객사동의서 OCR 결과(앱이 추출) — 접근 기간 원문 + 종료일(YYYY-MM-DD, 서비스 종료 시까지면 null)
+    val consentPeriod: String? = null,
+    val consentEndDate: String? = null,
 )
 data class FwStatusReq(val status: String? = null)
 // 고객사별 방화벽 종료 기간 upsert 요청. endDate 빈 값 = 해당 고객사 기록 삭제.
@@ -77,6 +80,8 @@ data class FwDetailDto(
     val note: String?,
     val members: String?,
     val sysNames: String?,
+    val consentPeriod: String?,
+    val consentEndDate: String?,
     val reporter: String,
     val reporterUserId: String?,
     val status: String,
@@ -183,6 +188,8 @@ class FirewallController(
             note = req.note?.trim()?.ifEmpty { null },
             members = req.members?.trim()?.ifEmpty { null },
             sysNames = req.sysNames?.trim()?.ifEmpty { null },
+            consentPeriod = req.consentPeriod?.trim()?.take(300)?.ifEmpty { null },
+            consentEndDate = req.consentEndDate?.trim()?.takeIf { Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(it) },
             reporter = req.reporter?.trim().orEmpty().ifEmpty { "unknown" },
             reporterUserId = req.reporterUserId?.trim()?.ifEmpty { null },
             appVersion = req.appVersion?.trim(),
@@ -271,6 +278,8 @@ private fun FirewallRequest.toDetail(fs: List<FirewallFile>) = FwDetailDto(
     note = note,
     members = members,
     sysNames = sysNames,
+    consentPeriod = consentPeriod,
+    consentEndDate = consentEndDate,
     reporter = reporter,
     reporterUserId = reporterUserId,
     status = status,
