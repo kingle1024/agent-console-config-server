@@ -13,7 +13,7 @@ WORKDIR /app
 #  - apt tesseract-ocr-kor(경량 fast 모델)는 굵은 라벨 "접근 기간"을 깨뜨려 NOT_FOUND 가 났다.
 #  - ADD <URL> 은 0600 root 파일이라 non-root 실행(cloudtype)에서 "Error opening data file" → 반드시 chmod 644.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tesseract-ocr \
+ && apt-get install -y --no-install-recommends tesseract-ocr poppler-utils \
  && rm -rf /var/lib/apt/lists/*
 ADD https://github.com/tesseract-ocr/tessdata/raw/4.1.0/kor.traineddata /app/tessdata/kor.traineddata
 RUN chmod 755 /app/tessdata && chmod 644 /app/tessdata/kor.traineddata
