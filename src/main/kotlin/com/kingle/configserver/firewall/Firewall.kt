@@ -54,6 +54,10 @@ class FirewallRequest(
     @Column(name = "consent_ocr_status", length = 20)
     var consentOcrStatus: String? = null,
 
+    // 서버 OCR 실패/진단 메모(예외 메시지·소요시간). 관리자 확인용.
+    @Column(name = "consent_ocr_error", length = 500)
+    var consentOcrError: String? = null,
+
     // 신청자(작업대상 개발사원 사번 — 목록 필터/표시용). report.reporter 와 동일 개념.
     @Column(length = 100, nullable = false)
     var reporter: String = "",
