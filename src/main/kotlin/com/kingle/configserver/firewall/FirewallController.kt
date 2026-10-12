@@ -82,6 +82,7 @@ data class FwDetailDto(
     val sysNames: String?,
     val consentPeriod: String?,
     val consentEndDate: String?,
+    val consentOcrStatus: String?,
     val reporter: String,
     val reporterUserId: String?,
     val status: String,
@@ -101,6 +102,7 @@ class FirewallController(
     private val files: FirewallFileRepository,
     private val endDates: FirewallCustomerEndRepository,
     private val r2: R2Uploader,
+    private val consentOcr: ConsentOcrService,
 ) {
     // 고객사별 방화벽 종료 기간 조회 — customer 지정 시 1건(없으면 endDate=""), 미지정 시 전체.
     // 관리자 게이트 없음: [고객사 정보 검색]에서 모든 사용자가 보고 수기 수정할 수 있어야 한다.
@@ -208,7 +210,17 @@ class FirewallController(
                 )
             )
         }
+        // 동의서 접근 기간 OCR 은 비동기(수~십수 초) — 신청 응답은 바로 돌려주고 결과는 상세 조회로 확인.
+        if (incoming.any { it.kind == "consent" }) consentOcr.enqueue(r.id!!)
         return mapOf("id" to r.id)
+    }
+
+    // 동의서 OCR 재실행(관리자 확인·기존 신청 백필용). 큐에 넣고 바로 응답 — 결과는 상세의 consentOcrStatus 로.
+    @PostMapping("/{id}/ocr")
+    fun rerunOcr(@PathVariable id: Long): Map<String, Any?> {
+        if (!requests.existsById(id)) throw ResponseStatusException(HttpStatus.NOT_FOUND, "not found")
+        consentOcr.enqueue(id)
+        return mapOf("ok" to true, "status" to ConsentOcrStatus.PENDING)
     }
 
     // 목록 — reporter 지정 시 본인 것만(신청자), 없으면 전체(관리자)
@@ -280,6 +292,7 @@ private fun FirewallRequest.toDetail(fs: List<FirewallFile>) = FwDetailDto(
     sysNames = sysNames,
     consentPeriod = consentPeriod,
     consentEndDate = consentEndDate,
+    consentOcrStatus = consentOcrStatus,
     reporter = reporter,
     reporterUserId = reporterUserId,
     status = status,
