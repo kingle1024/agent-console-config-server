@@ -79,7 +79,7 @@ class ConsentOcrService(
         val started = System.currentTimeMillis()
         val outcome = try {
             process(requestId)
-        } catch (e: Exception) {
+        } catch (e: Throwable) { // OutOfMemoryError 등 Error 도 — 안 잡으면 상태가 PENDING 으로 영영 남는다(16번 실측)
             log.warn("consent OCR 실패 #{}: {}", requestId, e.toString())
             OcrOutcome(ConsentOcrStatus.FAILED, e.toString())
         }
