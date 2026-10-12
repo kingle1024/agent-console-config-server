@@ -12,7 +12,8 @@ object ConsentPeriodParser {
     private val DATE_RE = Regex("""(\d{4}|\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?""")
 
     // 실제 동의서 표기: "서비스 종료시까지" / "서비스종료일" / "2026. 04. 10 ~ 종료시" (OCR 오타 "종료시까저" 도 앞부분으로 잡힌다)
-    private val SERVICE_END_RE = Regex("""(서비스|계약|유지보수|사용|이용)\s*(종료|만료|해지)|종료\s*시|별도\s*통보""")
+    // "서비스 조료시까쩌" — 워터마크가 겹친 6번 실측 OCR 오타(종→조)도 허용.
+    private val SERVICE_END_RE = Regex("""(서비스|계약|유지보수|사용|이용)\s*([종조]료|만료|해지)|종료\s*시|별도\s*통보""")
 
     // OCR 이 글자 사이에 공백을 끼우므로(접 근 기 간) 공백을 지운 줄에서 라벨을 찾는다.
     private val LABEL_RE = Regex("""(접근|접속|사용|이용|허용|적용)기간""")
@@ -23,8 +24,17 @@ object ConsentPeriodParser {
     fun parse(text: String?): ConsentPeriod? {
         val lines = text.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() }
         val idx = lines.indexOfFirst { LABEL_RE.containsMatchIn(it.replace(Regex("""\s+"""), "")) }
-        if (idx < 0) return null
-        val scope = periodScope(lines, idx)
+        val labeled = if (idx < 0) null else periodScope(lines, idx)
+        if (labeled != null && hasPeriodValue(labeled)) return toPeriod(labeled)
+        // 라벨 근처에서 값을 못 찾으면 문서 전체에서 찾는다 — tesseract 가 표를 단으로 나눠 읽어 라벨과 값이
+        // 떨어져 나오거나(11번), 워터마크로 라벨 자체가 깨지는(6번) 실측 사례. 동의서에 기간 표기는 하나뿐이다.
+        val fallback = lines.firstOrNull { it.contains('~') && findDates(it).size >= 2 } ?: lines.firstOrNull { isServiceEnd(it) }
+        return (fallback ?: labeled)?.let { toPeriod(it) }
+    }
+
+    private fun hasPeriodValue(scope: String): Boolean = findDates(scope).isNotEmpty() || isServiceEnd(scope)
+
+    private fun toPeriod(scope: String): ConsentPeriod {
         val dates = findDates(scope)
         val untilServiceEnd = isServiceEnd(scope)
         // 날짜가 1개뿐이면 시작일("2022.09.26 ~")로 보고 종료일은 비운다 — 결재 종료일은 1년 기본값.
