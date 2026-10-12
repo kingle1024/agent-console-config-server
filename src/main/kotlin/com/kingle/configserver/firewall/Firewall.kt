@@ -58,6 +58,10 @@ class FirewallRequest(
     @Column(name = "consent_ocr_error", length = 500)
     var consentOcrError: String? = null,
 
+    // 서버 OCR 이 읽은 글자 전체(앞 4000자) — 판독 확인용.
+    @Column(name = "consent_ocr_text", length = 4000)
+    var consentOcrText: String? = null,
+
     // 신청자(작업대상 개발사원 사번 — 목록 필터/표시용). report.reporter 와 동일 개념.
     @Column(length = 100, nullable = false)
     var reporter: String = "",

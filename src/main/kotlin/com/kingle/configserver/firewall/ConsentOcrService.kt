@@ -94,6 +94,7 @@ class ConsentOcrService(
         val consent = files.findByRequestIdOrderByIdAsc(requestId).firstOrNull { it.kind == "consent" }
             ?: return OcrOutcome(ConsentOcrStatus.NONE)
         val text = extractText(download(r2.publicUrl(consent.objectKey)), consent.filename)
+        saveText(requestId, text)
         val period = ConsentPeriodParser.parse(text)
             ?: return OcrOutcome(ConsentOcrStatus.NOT_FOUND, "읽은 글자: " + notFoundSnippet(text))
         val r = requests.findById(requestId).orElse(null) ?: return OcrOutcome(ConsentOcrStatus.FAILED, "신청 없음")
@@ -101,6 +102,13 @@ class ConsentOcrService(
         r.consentEndDate = period.endDate
         requests.save(r)
         return OcrOutcome(ConsentOcrStatus.DONE)
+    }
+
+    // 읽은 글자 전체 보관 — 판독이 틀렸을 때 무엇을 읽었는지 확인(관리자·디버깅).
+    private fun saveText(requestId: Long, text: String) {
+        val r = requests.findById(requestId).orElse(null) ?: return
+        r.consentOcrText = text.take(4000)
+        requests.save(r)
     }
 
     // 진단용 글자 일부 — "기간" 이 보이면 그 주변(라벨이 깨진 모양 확인), 없으면 앞부분.
