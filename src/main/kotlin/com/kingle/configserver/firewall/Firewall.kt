@@ -42,6 +42,14 @@ class FirewallRequest(
     @Column(name = "sys_names", length = 500)
     var sysNames: String? = null,
 
+    // 고객사동의서에서 OCR 로 읽은 "접근 기간" 원문(예: "2022.09.26 ~2025.08.31", "서비스 종료 시까지"). 못 읽으면 null.
+    @Column(name = "consent_period", length = 300)
+    var consentPeriod: String? = null,
+
+    // 접근 기간의 종료일 "YYYY-MM-DD". "서비스 종료 시까지"이거나 날짜를 못 읽으면 null(결재 종료일은 앱이 1년 상한으로 계산).
+    @Column(name = "consent_end_date", length = 20)
+    var consentEndDate: String? = null,
+
     // 신청자(작업대상 개발사원 사번 — 목록 필터/표시용). report.reporter 와 동일 개념.
     @Column(length = 100, nullable = false)
     var reporter: String = "",
