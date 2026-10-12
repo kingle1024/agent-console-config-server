@@ -30,6 +30,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	runtimeOnly("org.mariadb.jdbc:mariadb-java-client")
+	// 방화벽 고객사동의서 OCR — PDF 글자 레이어 추출/페이지 렌더(글자 인식은 컨테이너의 tesseract CLI)
+	implementation("org.apache.pdfbox:pdfbox:3.0.3")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")

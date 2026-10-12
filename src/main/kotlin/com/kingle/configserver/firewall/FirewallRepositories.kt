@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface FirewallRequestRepository : JpaRepository<FirewallRequest, Long> {
     fun findAllByOrderByUpdatedAtDesc(): List<FirewallRequest>
     fun findByReporterOrderByUpdatedAtDesc(reporter: String): List<FirewallRequest>
+    fun findByConsentOcrStatus(status: String): List<FirewallRequest>
 }
 
 interface FirewallFileRepository : JpaRepository<FirewallFile, Long> {

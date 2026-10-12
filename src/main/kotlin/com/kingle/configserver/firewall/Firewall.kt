@@ -50,6 +50,10 @@ class FirewallRequest(
     @Column(name = "consent_end_date", length = 20)
     var consentEndDate: String? = null,
 
+    // 서버 OCR 상태(ConsentOcrStatus) — PENDING/DONE/NOT_FOUND/FAILED/NONE. 기능 도입 전 신청은 null.
+    @Column(name = "consent_ocr_status", length = 20)
+    var consentOcrStatus: String? = null,
+
     // 신청자(작업대상 개발사원 사번 — 목록 필터/표시용). report.reporter 와 동일 개념.
     @Column(length = 100, nullable = false)
     var reporter: String = "",
