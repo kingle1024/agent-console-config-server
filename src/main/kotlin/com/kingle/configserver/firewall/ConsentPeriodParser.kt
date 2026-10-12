@@ -26,7 +26,7 @@ object ConsentPeriodParser {
         if (idx < 0) return null
         val scope = periodScope(lines, idx)
         val dates = findDates(scope)
-        val untilServiceEnd = SERVICE_END_RE.containsMatchIn(scope)
+        val untilServiceEnd = isServiceEnd(scope)
         // 날짜가 1개뿐이면 시작일("2022.09.26 ~")로 보고 종료일은 비운다 — 결재 종료일은 1년 기본값.
         val endDate = if (untilServiceEnd || dates.size < 2) null else dates.last()
         val raw = scope.replace(Regex("""\s+"""), " ").replace(EDGE_NOISE_RE, "").take(300)
@@ -38,9 +38,12 @@ object ConsentPeriodParser {
         val head = lines[idx]
         val colon = head.indexOfFirst { it == ':' || it == '：' }
         val body = (if (colon >= 0) head.substring(colon + 1) else head.replace(Regex("""^.*?기\s*간"""), "")).trim()
-        if (findDates(body).isNotEmpty() || SERVICE_END_RE.containsMatchIn(body)) return body
+        if (findDates(body).isNotEmpty() || isServiceEnd(body)) return body
         return listOf(body, lines.getOrElse(idx + 1) { "" }).joinToString(" ")
     }
+
+    // OCR 이 글자 사이에 공백을 끼워도("서 비 스 종 료 시") 잡히게 공백을 지우고 본다.
+    private fun isServiceEnd(text: String): Boolean = SERVICE_END_RE.containsMatchIn(text.replace(Regex("""\s+"""), ""))
 
     private fun findDates(text: String): List<String> =
         DATE_RE.findAll(text).mapNotNull { toIsoDate(it.groupValues[1], it.groupValues[2], it.groupValues[3]) }.toList()

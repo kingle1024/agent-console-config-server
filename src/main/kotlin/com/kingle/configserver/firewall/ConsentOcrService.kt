@@ -97,12 +97,20 @@ class ConsentOcrService(
             ?: return OcrOutcome(ConsentOcrStatus.NONE)
         val text = extractText(download(r2.publicUrl(consent.objectKey)), consent.filename)
         val period = ConsentPeriodParser.parse(text)
-            ?: return OcrOutcome(ConsentOcrStatus.NOT_FOUND, "읽은 글자: " + text.replace(Regex("""\s+"""), " ").take(400))
+            ?: return OcrOutcome(ConsentOcrStatus.NOT_FOUND, "읽은 글자: " + notFoundSnippet(text))
         val r = requests.findById(requestId).orElse(null) ?: return OcrOutcome(ConsentOcrStatus.FAILED, "신청 없음")
         r.consentPeriod = period.raw.ifEmpty { null }
         r.consentEndDate = period.endDate
         requests.save(r)
         return OcrOutcome(ConsentOcrStatus.DONE)
+    }
+
+    // 진단용 글자 일부 — "기간" 이 보이면 그 주변(라벨이 깨진 모양 확인), 없으면 앞부분.
+    private fun notFoundSnippet(text: String): String {
+        val flat = text.replace(Regex("""\s+"""), " ")
+        val at = flat.indexOf("기간").takeIf { it >= 0 } ?: flat.indexOf("기 간")
+        val from = if (at > 150) at - 150 else 0
+        return flat.substring(from).take(400)
     }
 
     private fun saveStatus(requestId: Long, status: String, note: String) {
@@ -156,7 +164,10 @@ class ConsentOcrService(
     private fun runTesseract(image: Path): String {
         val outBase = image.resolveSibling(image.fileName.toString() + "-out")
         val outTxt = Path.of("$outBase.txt")
-        val cmd = mutableListOf(tesseractCmd, image.toString(), outBase.toString(), "-l", "kor", "--psm", "3")
+        // preserve_interword_spaces=1 — 없으면 tesseract CLI 가 한글 글자마다 공백을 끼운다("서 비 스 종 료").
+        val cmd = mutableListOf(
+            tesseractCmd, image.toString(), outBase.toString(), "-l", "kor", "--psm", "3", "-c", "preserve_interword_spaces=1",
+        )
         if (tessdataDir.isNotBlank()) cmd += listOf("--tessdata-dir", tessdataDir)
         val procLog = Path.of("$outBase.log")
         val pb = ProcessBuilder(cmd).redirectErrorStream(true).redirectOutput(procLog.toFile())

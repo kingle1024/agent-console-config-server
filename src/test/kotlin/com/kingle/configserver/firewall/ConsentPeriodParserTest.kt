@@ -37,6 +37,14 @@ class ConsentPeriodParserTest {
     @Test
     fun `OCR 오타 + 뒤 잡음`() = check("6. 접근 기간 : 서비스 종료시까저> |", "서비스 종료시까저", null, true)
 
+    // 서버 tesseract CLI 실측 출력(글자마다 공백) — 다음 줄을 끌어오지 않아야 한다.
+    @Test
+    fun `글자마다 공백 - 서비스 종료`() =
+        check("6. 접 근 기 간 : 서 비 스 종 료 시 까 지\n위 내 용 에 대 해 확 인 하 였 으 며", "서 비 스 종 료 시 까 지", null, true)
+
+    @Test
+    fun `글자마다 공백 - 종료시`() = check("6. 접근 기간 : 2026. 04. 10 ~ 종 료 시", "2026. 04. 10 ~ 종 료 시", null, true)
+
     @Test
     fun `라벨 없으면 null`() = assertNull(ConsentPeriodParser.parse("제목 없음 문서"))
 }
