@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDateTime
 
@@ -54,7 +55,26 @@ class UsageLogController(
 
     @GetMapping
     fun list(): List<UsageLogDto> = repo.findTop1000ByOrderByCreatedAtDesc().map { it.toDto() }
+
+    // 사용 순위 — (키, 사용자)별 건수. by=menu: 메뉴 열기 기준 / by=api: API 호출 기준.
+    // days<=0 이면 전체 기간. 집계·정렬은 앱이 한다(사용자별로 펼쳐 보기 위해 키×사용자로 내려준다).
+    @GetMapping("/rank")
+    fun rank(
+        @RequestParam(defaultValue = "menu") by: String,
+        @RequestParam(defaultValue = "30") days: Long,
+    ): List<UsageRankDto> {
+        val since = if (days > 0) LocalDateTime.now().minusDays(days) else LocalDateTime.of(2000, 1, 1, 0, 0)
+        val rows = if (by == "api") repo.rankApiCalls(since) else repo.rankMenuOpens(since)
+        return rows.map { UsageRankDto(it.rankKey.orEmpty(), it.reporter.orEmpty(), it.cnt.toLong(), it.lastAt?.toString()) }
+    }
 }
+
+data class UsageRankDto(
+    val key: String,
+    val reporter: String,
+    val count: Long,
+    val lastAt: String?,
+)
 
 // api 가 비면 저장하지 않는다(잘못된 항목 스킵). 각 필드는 컬럼 길이에 맞춰 자른다.
 private fun UsageLogItem.toEntity(): UsageLog? {
