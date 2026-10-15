@@ -69,4 +69,10 @@ interface UsageMenuLabelRepository : JpaRepository<UsageLog, Long> {
             "FROM usage_log WHERE menu_label IS NOT NULL AND created_at >= :since GROUP BY menu_label, reporter",
     )
     fun rankByMenu(@Param("since") since: LocalDateTime): List<MenuUsageRow>
+
+    // 잘못 채운 라벨 되돌리기 — 그 API·라벨이면서 cutoff 이전 행만(이후의 정확한 스탬프 로그는 보존).
+    @Modifying
+    @Transactional
+    @Query(nativeQuery = true, value = "UPDATE usage_log SET menu_label = NULL WHERE api = :api AND menu_label = :label AND created_at < :before")
+    fun resetLabel(@Param("api") api: String, @Param("label") label: String, @Param("before") before: LocalDateTime): Int
 }
