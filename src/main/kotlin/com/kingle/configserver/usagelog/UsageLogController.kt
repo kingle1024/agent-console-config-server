@@ -19,6 +19,20 @@ data class UsageLogItem(
     val osInfo: String? = null,
     // 앱이 측정한 발생 시각(ISO-8601). 배치 전송 지연으로 서버 수신 시각과 어긋날 수 있어 앱 시각을 우선.
     val at: String? = null,
+    // 호출이 일어난 메뉴(앱이 보고 있던 사이드바 메뉴 라벨). 없으면 NULL — 나중에 /menu-labels 로 채울 수 있다.
+    val menuLabel: String? = null,
+)
+
+// 라벨 채우기 — API 채널 → 메뉴 라벨. 이미 라벨이 있는 행은 건드리지 않는다.
+data class MenuLabelItem(val api: String? = null, val label: String? = null)
+data class FillMenuLabelsReq(val items: List<MenuLabelItem>? = null)
+
+data class MenuUsageDto(
+    val menu: String,
+    val reporter: String,
+    val sessions: Long,
+    val calls: Long,
+    val lastAt: String?,
 )
 
 // 배치 수집 — 앱이 여러 건을 모아 한 번에 보낸다(무료 플랜 부하/콜드스타트 완화).
@@ -43,6 +57,7 @@ data class UsageLogDto(
 @RequestMapping("/api/usagelogs")
 class UsageLogController(
     private val repo: UsageLogRepository,
+    private val labels: UsageMenuLabelRepository,
 ) {
     // 배치 수집. 빈 요청/빈 목록이면 조용히 0건 저장(에러 아님 — fire-and-forget 클라이언트를 막지 않는다).
     @PostMapping
@@ -58,6 +73,31 @@ class UsageLogController(
 
     // 사용 순위 — (키, 사용자)별 건수. by=menu: 메뉴 열기 기준 / by=api: API 호출 기준.
     // days<=0 이면 전체 기간. 집계·정렬은 앱이 한다(사용자별로 펼쳐 보기 위해 키×사용자로 내려준다).
+    // 라벨이 비어 있는 API 채널 — 앱이 이 목록을 메뉴로 매핑해 /menu-labels 로 보낸다.
+    @GetMapping("/unlabeled-apis")
+    fun unlabeledApis(): List<String> = labels.unlabeledApis()
+
+    // 기존 로그 메뉴 라벨 채우기(멱등 — NULL 인 행만). menu:open 행은 menu 값을 그대로 라벨로.
+    @PostMapping("/menu-labels")
+    fun fillMenuLabels(@RequestBody req: FillMenuLabelsReq): Map<String, Any?> {
+        var updated = labels.fillMenuOpenLabels()
+        for (item in req.items.orEmpty()) {
+            val api = item.api?.trim().orEmpty()
+            val label = item.label?.trim()?.take(100).orEmpty()
+            if (api.isNotEmpty() && label.isNotEmpty()) updated += labels.fillLabel(api, label)
+        }
+        return mapOf("updated" to updated)
+    }
+
+    // 메뉴 사용 순위 — (메뉴, 사용자)별 사용 횟수(시간대)·호출 수. days<=0 이면 전체 기간.
+    @GetMapping("/menu-rank")
+    fun menuRank(@RequestParam(defaultValue = "30") days: Long): List<MenuUsageDto> {
+        val since = if (days > 0) LocalDateTime.now().minusDays(days) else LocalDateTime.of(2000, 1, 1, 0, 0)
+        return labels.rankByMenu(since).map {
+            MenuUsageDto(it.menuLabel.orEmpty(), it.reporter.orEmpty(), it.sessions.toLong(), it.calls.toLong(), it.lastAt?.toString())
+        }
+    }
+
     @GetMapping("/rank")
     fun rank(
         @RequestParam(defaultValue = "menu") by: String,
@@ -89,6 +129,7 @@ private fun UsageLogItem.toEntity(): UsageLog? {
         durationMs = durationMs,
         appVersion = appVersion?.trim()?.take(60),
         osInfo = osInfo?.trim()?.take(160),
+        menuLabel = menuLabel?.trim()?.take(100)?.ifEmpty { null },
         createdAt = parsedAt ?: LocalDateTime.now(),
     )
 }

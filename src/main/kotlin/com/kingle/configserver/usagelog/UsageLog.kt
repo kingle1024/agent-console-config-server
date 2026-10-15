@@ -18,6 +18,7 @@ import java.time.LocalDateTime
     indexes = [
         Index(name = "idx_usage_created", columnList = "created_at"),
         Index(name = "idx_usage_reporter", columnList = "reporter"),
+        Index(name = "idx_usage_menu_label", columnList = "menu_label, created_at"),
     ],
 )
 class UsageLog(
@@ -53,4 +54,9 @@ class UsageLog(
 
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
+
+    // 그 호출이 일어난 메뉴(사이드바 라벨). 새 로그는 앱이 "지금 보고 있던 메뉴"로 채워 보내고,
+    // 이 컬럼이 생기기 전 로그는 앱이 API→메뉴 매핑을 보내 채운다(/menu-labels). 모르면 NULL.
+    @Column(name = "menu_label", length = 100)
+    var menuLabel: String? = null,
 )

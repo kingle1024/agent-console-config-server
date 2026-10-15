@@ -1,6 +1,8 @@
 package com.kingle.configserver.usagelog
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
@@ -11,6 +13,15 @@ interface UsageRankRow {
     val reporter: String?
     val cnt: Number
     val lastAt: Any? // native 결과라 드라이버 타입(Timestamp/LocalDateTime) 그대로 — 문자열로만 쓴다
+}
+
+// 메뉴 사용 순위 한 줄 — (메뉴, 사용자)별 사용 횟수(시간대 단위)·호출 수·마지막 사용 시각.
+interface MenuUsageRow {
+    val menuLabel: String?
+    val reporter: String?
+    val sessions: Number // 그 메뉴를 쓴 서로 다른 "날짜+시" 수 — 한 시간 안 여러 호출은 1회
+    val calls: Number
+    val lastAt: Any?
 }
 
 interface UsageLogRepository : JpaRepository<UsageLog, Long> {
@@ -33,4 +44,29 @@ interface UsageLogRepository : JpaRepository<UsageLog, Long> {
             "FROM usage_log WHERE api <> 'menu:open' AND created_at >= :since GROUP BY api, reporter",
     )
     fun rankApiCalls(@Param("since") since: LocalDateTime): List<UsageRankRow>
+}
+
+// ★native 쿼리만 쓴다 — JPQL 은 기동 시 검증돼 오타 하나로 서버 전체가 안 뜬다.★
+interface UsageMenuLabelRepository : JpaRepository<UsageLog, Long> {
+    // 메뉴 라벨이 아직 없는 API 채널 목록(채우기 대상). menu:open 은 menu 칼럼이 곧 라벨이라 따로 채운다.
+    @Query(nativeQuery = true, value = "SELECT DISTINCT api FROM usage_log WHERE menu_label IS NULL AND api <> 'menu:open'")
+    fun unlabeledApis(): List<String>
+
+    @Modifying
+    @Transactional
+    @Query(nativeQuery = true, value = "UPDATE usage_log SET menu_label = :label WHERE api = :api AND menu_label IS NULL")
+    fun fillLabel(@Param("api") api: String, @Param("label") label: String): Int
+
+    @Modifying
+    @Transactional
+    @Query(nativeQuery = true, value = "UPDATE usage_log SET menu_label = LEFT(menu, 100) WHERE api = 'menu:open' AND menu_label IS NULL AND menu IS NOT NULL")
+    fun fillMenuOpenLabels(): Int
+
+    @Query(
+        nativeQuery = true,
+        value = "SELECT menu_label AS menuLabel, reporter AS reporter, " +
+            "COUNT(DISTINCT DATE_FORMAT(created_at, '%Y%m%d%H')) AS sessions, COUNT(*) AS calls, MAX(created_at) AS lastAt " +
+            "FROM usage_log WHERE menu_label IS NOT NULL AND created_at >= :since GROUP BY menu_label, reporter",
+    )
+    fun rankByMenu(@Param("since") since: LocalDateTime): List<MenuUsageRow>
 }
