@@ -26,6 +26,7 @@ data class UsageLogItem(
 // 라벨 채우기 — API 채널 → 메뉴 라벨. 이미 라벨이 있는 행은 건드리지 않는다.
 data class MenuLabelItem(val api: String? = null, val label: String? = null)
 data class FillMenuLabelsReq(val items: List<MenuLabelItem>? = null)
+data class ResetMenuLabelsReq(val items: List<MenuLabelItem>? = null, val before: String? = null)
 
 data class MenuUsageDto(
     val menu: String,
@@ -85,6 +86,19 @@ class UsageLogController(
             val api = item.api?.trim().orEmpty()
             val label = item.label?.trim()?.take(100).orEmpty()
             if (api.isNotEmpty() && label.isNotEmpty()) updated += labels.fillLabel(api, label)
+        }
+        return mapOf("updated" to updated)
+    }
+
+    // 잘못 채운 라벨 되돌리기(관리용) — before(ISO, UTC) 이전 행 중 api·label 이 일치하는 것만 NULL 로.
+    @PostMapping("/menu-labels/reset")
+    fun resetMenuLabels(@RequestBody req: ResetMenuLabelsReq): Map<String, Any?> {
+        val before = req.before?.trim()?.let { parseLocalDateTime(it) } ?: return mapOf("updated" to 0, "error" to "before 필요")
+        var updated = 0
+        for (item in req.items.orEmpty()) {
+            val api = item.api?.trim().orEmpty()
+            val label = item.label?.trim().orEmpty()
+            if (api.isNotEmpty() && label.isNotEmpty()) updated += labels.resetLabel(api, label, before)
         }
         return mapOf("updated" to updated)
     }
