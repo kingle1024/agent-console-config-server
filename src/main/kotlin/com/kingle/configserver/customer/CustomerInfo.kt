@@ -53,7 +53,7 @@ class CustomerAccessLog(
     @Column(name = "user_id", length = 100, nullable = false)
     var userId: String = "",
 
-    // unlock_ok / unlock_fail / unlock_blocked / view / sync
+    // unlock_ok / unlock_fail / unlock_blocked / unlock_denied / view / sync
     @Column(name = "action", length = 30, nullable = false)
     var action: String = "",
 

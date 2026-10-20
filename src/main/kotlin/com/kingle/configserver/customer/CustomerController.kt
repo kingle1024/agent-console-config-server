@@ -1,5 +1,7 @@
 package com.kingle.configserver.customer
 
+import com.kingle.configserver.menuadmin.MenuAdminRepository
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
@@ -48,6 +50,9 @@ data class CustomerAccessLogDto(
 //   GET    /api/customers/logs[?name=]   열람·변경 기록(최근 300건)
 //   (detail·PUT·logs 는 X-Customer-Token 필요)
 //
+// 열람(unlock)은 [기타>관리자 설정]의 "고객사 정보 검색"(menu_admin.menu_key=customer_search)에 지정된 사람과
+// 슈퍼관리자만 — 앱 메뉴 숨김만으론 API 직접 호출을 못 막으므로 서버에서도 확인한다.
+//
 // 내용은 DB 에 AES-256-GCM 으로 암호화해 두고(CustomerCipher) detail 에서만 복호화한다.
 // 전체 내용을 한 번에 내려주는 API 는 일부러 두지 않는다 — 누가 어떤 고객사를 봤는지 남길 수 없게 되므로.
 @RestController
@@ -58,6 +63,8 @@ class CustomerController(
     private val verifier: AmaranthLoginVerifier,
     private val sessions: CustomerUnlockSessions,
     private val cipher: CustomerCipher,
+    private val menuAdmins: MenuAdminRepository,
+    @Value("\${customers.super-admin:ejy10241}") private val superAdmin: String,
 ) {
     private val mapper = ObjectMapper()
     private val fieldsType = object : TypeReference<Map<String, String>>() {}
@@ -78,6 +85,13 @@ class CustomerController(
         val password = req.password.orEmpty()
         if (userId.isEmpty() || password.isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "아마란스 아이디와 비밀번호를 입력해 주세요.")
+        }
+        if (!allowed(userId)) {
+            log(userId, "unlock_denied")
+            throw ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "고객사 정보 열람 권한이 없습니다 — [기타>관리자 설정]의 '고객사 정보 검색'에 지정돼야 합니다.",
+            )
         }
         if (sessions.isBlocked(userId)) {
             log(userId, "unlock_blocked")
@@ -183,6 +197,11 @@ class CustomerController(
     // 같은 내용이면 다시 쓰지 않는다(updatedAt·updatedBy 보존). 복호화가 안 되는 옛 값은 바뀐 것으로 본다.
     private fun sameContent(stored: String, json: String): Boolean =
         runCatching { cipher.decrypt(stored) == json }.getOrDefault(false)
+
+    private fun allowed(userId: String): Boolean {
+        val id = userId.trim().lowercase()
+        return id == superAdmin.trim().lowercase() || menuAdmins.existsByMenuKeyAndLoginId("customer_search", id)
+    }
 
     private fun requireSession(token: String?): UnlockSession =
         sessions.find(token)
