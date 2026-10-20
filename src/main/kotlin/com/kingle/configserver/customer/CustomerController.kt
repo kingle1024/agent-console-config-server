@@ -32,7 +32,7 @@ data class CustomerSyncReq(
 // 고객사 접속정보 — 이름 목록은 누구나(X-Api-Key), 내용은 아마란스 비밀번호를 확인한 세션만.
 //
 //   GET    /api/customers/names   이름 목록(자격증명 없음)
-//   POST   /api/customers/unlock  {userId,password} → 아마란스 로그인 확인 → 30분 열람 토큰
+//   POST   /api/customers/unlock  {userId,password} → 아마란스(genai) 로그인 확인 → 30분 열람 토큰
 //   DELETE /api/customers/unlock  토큰 폐기(잠그기)
 //   GET    /api/customers         전체 내용 (X-Customer-Token)
 //   PUT    /api/customers         위키에서 다시 읽은 전체 목록으로 교체 (X-Customer-Token)
@@ -79,9 +79,10 @@ class CustomerController(
             log(userId, "unlock_fail", check.message)
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, check.message)
         }
-        val (token, session) = sessions.issue(userId)
-        log(userId, "unlock_ok", null)
-        return mapOf("token" to token, "userId" to userId, "expiresAt" to session.expiresAt.toString())
+        val verifiedUserId = check.userId.ifBlank { userId }
+        val (token, session) = sessions.issue(verifiedUserId)
+        log(verifiedUserId, "unlock_ok", null)
+        return mapOf("token" to token, "userId" to verifiedUserId, "expiresAt" to session.expiresAt.toString())
     }
 
     @DeleteMapping("/unlock")
