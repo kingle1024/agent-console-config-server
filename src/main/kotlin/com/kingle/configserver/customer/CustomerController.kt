@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.server.ResponseStatusException
@@ -29,13 +30,26 @@ data class CustomerSyncReq(
     val force: Boolean? = null,
 )
 
-// 고객사 접속정보 — 이름 목록은 누구나(X-Api-Key), 내용은 아마란스 비밀번호를 확인한 세션만.
+data class CustomerAccessLogDto(
+    val userId: String,
+    val action: String,
+    val customerName: String?,
+    val detail: String?,
+    val createdAt: String,
+)
+
+// 고객사 접속정보 — 이름 목록은 누구나(X-Api-Key), 내용은 아마란스 비밀번호를 확인한 세션만 1건씩.
 //
-//   GET    /api/customers/names   이름 목록(자격증명 없음)
-//   POST   /api/customers/unlock  {userId,password} → 아마란스(genai) 로그인 확인 → 30분 열람 토큰
-//   DELETE /api/customers/unlock  토큰 폐기(잠그기)
-//   GET    /api/customers         전체 내용 (X-Customer-Token)
-//   PUT    /api/customers         위키에서 다시 읽은 전체 목록으로 교체 (X-Customer-Token)
+//   GET    /api/customers/names          이름 목록(자격증명 없음)
+//   POST   /api/customers/unlock         {userId,password} → 아마란스(genai) 로그인 확인 → 30분 열람 토큰
+//   DELETE /api/customers/unlock         토큰 폐기(잠그기)
+//   GET    /api/customers/detail?name=   고객사 1건 내용 — ★열 때마다 (누가, 어느 고객사, 언제) 기록★
+//   PUT    /api/customers                위키에서 다시 읽은 전체 목록으로 교체
+//   GET    /api/customers/logs[?name=]   열람·변경 기록(최근 300건)
+//   (detail·PUT·logs 는 X-Customer-Token 필요)
+//
+// 내용은 DB 에 AES-256-GCM 으로 암호화해 두고(CustomerCipher) detail 에서만 복호화한다.
+// 전체 내용을 한 번에 내려주는 API 는 일부러 두지 않는다 — 누가 어떤 고객사를 봤는지 남길 수 없게 되므로.
 @RestController
 @RequestMapping("/api/customers")
 class CustomerController(
@@ -43,6 +57,7 @@ class CustomerController(
     private val accessLogs: CustomerAccessLogRepository,
     private val verifier: AmaranthLoginVerifier,
     private val sessions: CustomerUnlockSessions,
+    private val cipher: CustomerCipher,
 ) {
     private val mapper = ObjectMapper()
     private val fieldsType = object : TypeReference<Map<String, String>>() {}
@@ -65,7 +80,7 @@ class CustomerController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "아마란스 아이디와 비밀번호를 입력해 주세요.")
         }
         if (sessions.isBlocked(userId)) {
-            log(userId, "unlock_blocked", null)
+            log(userId, "unlock_blocked")
             throw ResponseStatusException(
                 HttpStatus.TOO_MANY_REQUESTS,
                 "비밀번호를 연속으로 틀려 10분 동안 확인을 멈춥니다(아마란스 계정 잠금 방지).",
@@ -76,12 +91,12 @@ class CustomerController(
         }
         if (!check.ok) {
             sessions.recordFailure(userId)
-            log(userId, "unlock_fail", check.message)
+            log(userId, "unlock_fail", detail = check.message)
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, check.message)
         }
         val verifiedUserId = check.userId.ifBlank { userId }
         val (token, session) = sessions.issue(verifiedUserId)
-        log(verifiedUserId, "unlock_ok", null)
+        log(verifiedUserId, "unlock_ok")
         return mapOf("token" to token, "userId" to verifiedUserId, "expiresAt" to session.expiresAt.toString())
     }
 
@@ -91,16 +106,24 @@ class CustomerController(
         return mapOf("ok" to true)
     }
 
-    @GetMapping
-    fun list(@RequestHeader("X-Customer-Token", required = false) token: String?): Map<String, Any?> {
+    @GetMapping("/detail")
+    fun detail(
+        @RequestHeader("X-Customer-Token", required = false) token: String?,
+        @RequestParam name: String,
+    ): Map<String, Any?> {
         val session = requireSession(token)
-        val rows = repo.findAllByOrderByNameAsc()
-        log(session.userId, "list", "${rows.size}건")
+        requireCipher()
+        val row = repo.findByName(name.trim())
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "'$name' 고객사가 서버에 없습니다.")
+        val fields = runCatching { mapper.readValue(cipher.decrypt(row.fieldsJson), fieldsType) }.getOrElse {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "복호화 실패 — 서버 키가 바뀌었으면 [위키 갱신]으로 다시 채워 주세요.")
+        }
+        log(session.userId, "view", customerName = row.name)
         return mapOf(
-            "count" to rows.size,
-            "updatedAt" to rows.maxOfOrNull { it.updatedAt }?.toString(),
+            "name" to row.name,
+            "fields" to fields,
+            "updatedAt" to row.updatedAt.toString(),
             "expiresAt" to session.expiresAt.toString(),
-            "customers" to rows.map { CustomerDto(it.name, readFields(it.fieldsJson)) },
         )
     }
 
@@ -111,6 +134,7 @@ class CustomerController(
         @RequestBody req: CustomerSyncReq,
     ): Map<String, Any?> {
         val session = requireSession(token)
+        requireCipher()
         val incoming = req.customers.orEmpty()
             .filter { it.name.isNotBlank() }
             .associateBy { it.name.trim() }
@@ -129,10 +153,10 @@ class CustomerController(
         incoming.forEach { (name, dto) ->
             val json = mapper.writeValueAsString(dto.fields)
             val row = existing[name] ?: CustomerInfo(name = name)
-            if (row.id != null && row.fieldsJson == json) {
+            if (row.id != null && sameContent(row.fieldsJson, json)) {
                 return@forEach
             }
-            row.fieldsJson = json
+            row.fieldsJson = cipher.encrypt(json)
             row.updatedBy = session.userId
             row.updatedAt = now
             repo.save(row)
@@ -140,19 +164,45 @@ class CustomerController(
         }
         val removed = existing.values.filter { it.name !in incoming }
         repo.deleteAll(removed)
-        log(session.userId, "sync", "${req.source.orEmpty()} 총 ${incoming.size}건, 변경 $changed, 삭제 ${removed.size}")
+        log(session.userId, "sync", detail = "${req.source.orEmpty()} 총 ${incoming.size}건, 변경 $changed, 삭제 ${removed.size}")
         return mapOf("count" to incoming.size, "changed" to changed, "removed" to removed.size)
     }
+
+    @GetMapping("/logs")
+    fun logs(
+        @RequestHeader("X-Customer-Token", required = false) token: String?,
+        @RequestParam(required = false) name: String?,
+    ): List<CustomerAccessLogDto> {
+        requireSession(token)
+        val rows = name?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { accessLogs.findTop300ByCustomerNameOrderByIdDesc(it) }
+            ?: accessLogs.findTop300ByOrderByIdDesc()
+        return rows.map { CustomerAccessLogDto(it.userId, it.action, it.customerName, it.detail, it.createdAt.toString()) }
+    }
+
+    // 같은 내용이면 다시 쓰지 않는다(updatedAt·updatedBy 보존). 복호화가 안 되는 옛 값은 바뀐 것으로 본다.
+    private fun sameContent(stored: String, json: String): Boolean =
+        runCatching { cipher.decrypt(stored) == json }.getOrDefault(false)
 
     private fun requireSession(token: String?): UnlockSession =
         sessions.find(token)
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "아마란스 비밀번호 확인이 필요합니다.")
 
-    private fun readFields(json: String): Map<String, String> =
-        runCatching { mapper.readValue(json, fieldsType) }.getOrDefault(emptyMap())
+    private fun requireCipher() {
+        if (!cipher.enabled) {
+            throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "서버 암호화 키(CUSTOMERS_DATA_KEY)가 설정되지 않았습니다.")
+        }
+    }
 
-    private fun log(userId: String, action: String, detail: String?) {
-        accessLogs.save(CustomerAccessLog(userId = userId.take(100), action = action, detail = detail?.take(500)))
+    private fun log(userId: String, action: String, customerName: String? = null, detail: String? = null) {
+        accessLogs.save(
+            CustomerAccessLog(
+                userId = userId.take(100),
+                action = action,
+                customerName = customerName?.take(200),
+                detail = detail?.take(500),
+            ),
+        )
     }
 }
 

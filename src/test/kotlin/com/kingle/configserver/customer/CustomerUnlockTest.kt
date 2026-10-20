@@ -75,6 +75,19 @@ class CustomerUnlockTest {
     }
 
     @Test
+    fun `저장 암호화는 왕복되고 평문이 남지 않는다`() {
+        val cipher = CustomerCipher("test-key")
+        val plain = """{"DB/PW":"secret!비번"}"""
+        val sealed = cipher.encrypt(plain)
+        assertTrue(sealed.startsWith("v1:"))
+        assertFalse(sealed.contains("secret"))
+        assertEquals(plain, cipher.decrypt(sealed))
+        assertTrue(cipher.encrypt(plain) != sealed) // IV 가 매번 달라야
+        assertFalse(runCatching { CustomerCipher("other-key").decrypt(sealed) }.isSuccess)
+        assertFalse(CustomerCipher("").enabled)
+    }
+
+    @Test
     fun `토큰은 30분 뒤 만료`() {
         val sessions = CustomerUnlockSessions()
         val now = Instant.parse("2026-10-20T00:00:00Z")

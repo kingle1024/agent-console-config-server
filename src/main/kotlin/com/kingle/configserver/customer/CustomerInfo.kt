@@ -13,9 +13,9 @@ import java.time.LocalDateTime
 // 고객사 접속정보 1건 — 위키 "ERP10 업체 접속" 패널 하나(브라우저/VPN/DB 접속정보, 비밀번호 포함).
 //
 // 예전엔 각 PC userData/customers.json 에 자격증명이 평문으로 남았다. 이제 서버가 원본을 들고,
-// 이름 목록만 누구나 받고 내용(fieldsJson)은 아마란스 비밀번호를 확인한 세션에만 내려준다(CustomerController).
+// 이름 목록만 누구나 받고 내용(fieldsJson)은 아마란스 비밀번호를 확인한 세션에 1건씩만 내려준다(CustomerController).
 //  - name       : 위키 업체명 원본(예 "그립컴퍼니(20311)"). 앱의 정규화 매칭은 클라이언트가 한다.
-//  - fieldsJson : {"섹션/항목": 값} JSON 문자열.
+//  - fieldsJson : {"섹션/항목": 값} JSON 을 AES-256-GCM 으로 암호화한 값("v1:..." — CustomerCipher).
 @Entity
 @Table(
     name = "customer_info",
@@ -53,9 +53,13 @@ class CustomerAccessLog(
     @Column(name = "user_id", length = 100, nullable = false)
     var userId: String = "",
 
-    // unlock_ok / unlock_fail / unlock_blocked / list / sync
+    // unlock_ok / unlock_fail / unlock_blocked / view / sync
     @Column(name = "action", length = 30, nullable = false)
     var action: String = "",
+
+    // view 일 때 열어본 고객사명
+    @Column(name = "customer_name", length = 200)
+    var customerName: String? = null,
 
     @Column(name = "detail", length = 500)
     var detail: String? = null,
@@ -66,6 +70,10 @@ class CustomerAccessLog(
 
 interface CustomerInfoRepository : JpaRepository<CustomerInfo, Long> {
     fun findAllByOrderByNameAsc(): List<CustomerInfo>
+    fun findByName(name: String): CustomerInfo?
 }
 
-interface CustomerAccessLogRepository : JpaRepository<CustomerAccessLog, Long>
+interface CustomerAccessLogRepository : JpaRepository<CustomerAccessLog, Long> {
+    fun findTop300ByOrderByIdDesc(): List<CustomerAccessLog>
+    fun findTop300ByCustomerNameOrderByIdDesc(customerName: String): List<CustomerAccessLog>
+}
