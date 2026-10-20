@@ -50,8 +50,9 @@ data class CustomerAccessLogDto(
 //   GET    /api/customers/logs[?name=]   열람·변경 기록(최근 300건)
 //   (detail·PUT·logs 는 X-Customer-Token 필요)
 //
-// 열람(unlock)은 [기타>관리자 설정]의 "고객사 정보 검색"(menu_admin.menu_key=customer_search)에 지정된 사람과
-// 슈퍼관리자만 — 앱 메뉴 숨김만으론 API 직접 호출을 못 막으므로 서버에서도 확인한다.
+// 열람(unlock)은 [기타>관리자 설정]의 "고객사 정보 검색"(menu_admin.menu_key=customer_search)에 지정된 사람만 —
+// ★슈퍼관리자도 목록에 있어야★ 하고, 목록이 비면 아무도 못 연다. 앱 메뉴 숨김만으론 API 직접 호출을 못 막으므로 서버에서도 확인하고,
+// 열람 중 토큰도 요청마다 다시 확인해 목록에서 빠지면 그 즉시 막는다.
 //
 // 내용은 DB 에 AES-256-GCM 으로 암호화해 두고(CustomerCipher) detail 에서만 복호화한다.
 // 전체 내용을 한 번에 내려주는 API 는 일부러 두지 않는다 — 누가 어떤 고객사를 봤는지 남길 수 없게 되므로.
@@ -64,7 +65,6 @@ class CustomerController(
     private val sessions: CustomerUnlockSessions,
     private val cipher: CustomerCipher,
     private val menuAdmins: MenuAdminRepository,
-    @Value("\${customers.super-admin:ejy10241}") private val superAdmin: String,
 ) {
     private val mapper = ObjectMapper()
     private val fieldsType = object : TypeReference<Map<String, String>>() {}
@@ -200,12 +200,18 @@ class CustomerController(
 
     private fun allowed(userId: String): Boolean {
         val id = userId.trim().lowercase()
-        return id == superAdmin.trim().lowercase() || menuAdmins.existsByMenuKeyAndLoginId("customer_search", id)
+        return id.isNotEmpty() && menuAdmins.existsByMenuKeyAndLoginId("customer_search", id)
     }
 
-    private fun requireSession(token: String?): UnlockSession =
-        sessions.find(token)
+    private fun requireSession(token: String?): UnlockSession {
+        val session = sessions.find(token)
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "아마란스 비밀번호 확인이 필요합니다.")
+        if (!allowed(session.userId)) {
+            sessions.revoke(token)
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "고객사 정보 열람 권한이 해제됐습니다.")
+        }
+        return session
+    }
 
     private fun requireCipher() {
         if (!cipher.enabled) {
