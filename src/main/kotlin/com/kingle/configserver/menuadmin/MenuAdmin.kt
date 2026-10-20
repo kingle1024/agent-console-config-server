@@ -42,4 +42,5 @@ class MenuAdmin(
 interface MenuAdminRepository : JpaRepository<MenuAdmin, Long> {
     fun findAllByOrderByMenuKeyAscSortOrderAscIdAsc(): List<MenuAdmin>
     fun deleteAllByMenuKey(menuKey: String)
+    fun existsByMenuKeyAndLoginId(menuKey: String, loginId: String): Boolean
 }
