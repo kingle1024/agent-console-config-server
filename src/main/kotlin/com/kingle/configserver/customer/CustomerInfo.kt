@@ -77,3 +77,24 @@ interface CustomerAccessLogRepository : JpaRepository<CustomerAccessLog, Long> {
     fun findTop300ByOrderByIdDesc(): List<CustomerAccessLog>
     fun findTop300ByCustomerNameOrderByIdDesc(customerName: String): List<CustomerAccessLog>
 }
+
+// 고객사 정보 화면 전체 설정 1건(키-값) — 지금은 "lock_enabled"(아마란스 비밀번호 열람 잠금 ON/OFF) 하나.
+// 행이 없으면 기본값(잠금 ON)이다. 앱 [설정]에서 슈퍼관리자가 바꾸고, 모든 사용자에게 바로 적용된다.
+@Entity
+@Table(name = "customer_setting")
+class CustomerSetting(
+    @Id
+    @Column(name = "setting_key", length = 60)
+    var settingKey: String = "",
+
+    @Column(name = "setting_value", length = 200, nullable = false)
+    var settingValue: String = "",
+
+    @Column(name = "updated_by", length = 100)
+    var updatedBy: String? = null,
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
+)
+
+interface CustomerSettingRepository : JpaRepository<CustomerSetting, String>

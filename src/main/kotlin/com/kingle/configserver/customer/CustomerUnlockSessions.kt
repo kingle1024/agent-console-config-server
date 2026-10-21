@@ -7,7 +7,8 @@ import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
-data class UnlockSession(val userId: String, val expiresAt: Instant)
+// passwordless = 열람 잠금 OFF 동안 비밀번호 없이 받은 세션 — 잠금을 다시 켜면 한꺼번에 닫는다.
+data class UnlockSession(val userId: String, val expiresAt: Instant, val passwordless: Boolean = false)
 
 // 아마란스 비밀번호 확인을 통과한 열람 세션(토큰) + 연속 실패 차단.
 //  - 토큰은 메모리에만 둔다 — 서버 재시작 시 모두 잠기고 앱은 비밀번호를 다시 묻는다(의도된 동작).
@@ -21,11 +22,11 @@ class CustomerUnlockSessions {
     private val sessions = ConcurrentHashMap<String, UnlockSession>()
     private val failures = ConcurrentHashMap<String, MutableList<Instant>>()
 
-    fun issue(userId: String, now: Instant = Instant.now()): Pair<String, UnlockSession> {
+    fun issue(userId: String, now: Instant = Instant.now(), passwordless: Boolean = false): Pair<String, UnlockSession> {
         purgeExpired(now)
         val bytes = ByteArray(32).also { random.nextBytes(it) }
         val token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-        val session = UnlockSession(userId, now.plus(ttl))
+        val session = UnlockSession(userId, now.plus(ttl), passwordless)
         sessions[token] = session
         failures.remove(key(userId))
         return token to session
@@ -47,6 +48,10 @@ class CustomerUnlockSessions {
         if (!token.isNullOrBlank()) {
             sessions.remove(token)
         }
+    }
+
+    fun revokePasswordless() {
+        sessions.values.removeIf { it.passwordless }
     }
 
     fun isBlocked(userId: String, now: Instant = Instant.now()): Boolean =
