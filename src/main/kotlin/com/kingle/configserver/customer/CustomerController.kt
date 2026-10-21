@@ -51,7 +51,7 @@ data class CustomerAccessLogDto(
 //   (detail·PUT·logs 는 X-Customer-Token 필요)
 //
 // 열람(unlock)은 [기타>관리자 설정]의 "고객사 정보 검색"(menu_admin.menu_key=customer_search)에 지정된 사람만 —
-// ★슈퍼관리자도 목록에 있어야★ 하고, 목록이 비면 아무도 못 연다. 앱 메뉴 숨김만으론 API 직접 호출을 못 막으므로 서버에서도 확인하고,
+// ★슈퍼관리자도 목록에 있어야★ 하고, 목록이 비면 아무도 못 연다(목록에 "*" 가 있으면 전체 공개). 앱 메뉴 숨김만으론 API 직접 호출을 못 막으므로 서버에서도 확인하고,
 // 열람 중 토큰도 요청마다 다시 확인해 목록에서 빠지면 그 즉시 막는다.
 //
 // 내용은 DB 에 AES-256-GCM 으로 암호화해 두고(CustomerCipher) detail 에서만 복호화한다.
@@ -200,7 +200,10 @@ class CustomerController(
 
     private fun allowed(userId: String): Boolean {
         val id = userId.trim().lowercase()
-        return id.isNotEmpty() && menuAdmins.existsByMenuKeyAndLoginId("customer_search", id)
+        if (id.isEmpty()) return false
+        // 목록에 "*" 가 있으면 전체 공개(앱 [관리자 설정]의 "전체 공개" 체크) — 열람은 여전히 아마란스 비밀번호 확인을 거친다.
+        return menuAdmins.existsByMenuKeyAndLoginId("customer_search", "*") ||
+            menuAdmins.existsByMenuKeyAndLoginId("customer_search", id)
     }
 
     private fun requireSession(token: String?): UnlockSession {
