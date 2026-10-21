@@ -25,6 +25,11 @@ data class CustomerDto(val name: String, val fields: Map<String, String>)
 
 data class CustomerUnlockReq(val userId: String? = null, val password: String? = null)
 
+// customer_setting 의 열람 잠금 키("true"/"false", 행 없으면 잠금 ON)
+private const val LOCK_KEY = "lock_enabled"
+
+data class CustomerLockReq(val enabled: Boolean? = null, val updatedBy: String? = null)
+
 data class CustomerSyncReq(
     val customers: List<CustomerDto>? = null,
     val source: String? = null,
@@ -48,7 +53,12 @@ data class CustomerAccessLogDto(
 //   GET    /api/customers/detail?name=   고객사 1건 내용 — ★열 때마다 (누가, 어느 고객사, 언제) 기록★
 //   PUT    /api/customers                위키에서 다시 읽은 전체 목록으로 교체
 //   GET    /api/customers/logs[?name=]   열람·변경 기록(최근 300건)
+//   GET    /api/customers/lock           열람 잠금 설정 {enabled, updatedBy, updatedAt}
+//   PUT    /api/customers/lock           {enabled, updatedBy} — 앱 [설정]의 슈퍼관리자 토글(게이팅은 앱)
 //   (detail·PUT·logs 는 X-Customer-Token 필요)
+//
+// 열람 잠금이 꺼져 있으면(lock_enabled=false) unlock 이 비밀번호 확인 없이 토큰을 준다 — 권한 목록 확인과
+// 열람 기록(누가·어느 고객사)은 그대로 남긴다. 기본값은 잠금 ON(행이 없을 때).
 //
 // 열람(unlock)은 [기타>관리자 설정]의 "고객사 정보 검색"(menu_admin.menu_key=customer_search)에 지정된 사람만 —
 // ★슈퍼관리자도 목록에 있어야★ 하고, 목록이 비면 아무도 못 연다(목록에 "*" 가 있으면 전체 공개). 앱 메뉴 숨김만으론 API 직접 호출을 못 막으므로 서버에서도 확인하고,
@@ -65,6 +75,7 @@ class CustomerController(
     private val sessions: CustomerUnlockSessions,
     private val cipher: CustomerCipher,
     private val menuAdmins: MenuAdminRepository,
+    private val settings: CustomerSettingRepository,
 ) {
     private val mapper = ObjectMapper()
     private val fieldsType = object : TypeReference<Map<String, String>>() {}
@@ -76,13 +87,36 @@ class CustomerController(
             "count" to rows.size,
             "updatedAt" to rows.maxOfOrNull { it.updatedAt }?.toString(),
             "names" to rows.map { it.name },
+            "lockEnabled" to lockEnabled(),
         )
+    }
+
+    @GetMapping("/lock")
+    fun lockSetting(): Map<String, Any?> {
+        val row = settings.findById(LOCK_KEY).orElse(null)
+        return mapOf(
+            "enabled" to lockEnabled(),
+            "updatedBy" to row?.updatedBy,
+            "updatedAt" to row?.updatedAt?.toString(),
+        )
+    }
+
+    @PutMapping("/lock")
+    fun saveLockSetting(@RequestBody req: CustomerLockReq): Map<String, Any?> {
+        val enabled = req.enabled
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "enabled(true/false)가 필요합니다.")
+        val by = req.updatedBy?.trim()?.lowercase()?.take(100)?.ifEmpty { null }
+        settings.save(CustomerSetting(LOCK_KEY, enabled.toString(), by, LocalDateTime.now()))
+        if (enabled) sessions.revokePasswordless() // 다시 켜면 비밀번호 없이 열린 세션은 바로 닫는다
+        log(by ?: "-", if (enabled) "lock_on" else "lock_off")
+        return lockSetting()
     }
 
     @PostMapping("/unlock")
     fun unlock(@RequestBody req: CustomerUnlockReq): Map<String, Any?> {
         val userId = req.userId?.trim().orEmpty()
         val password = req.password.orEmpty()
+        if (!lockEnabled()) return unlockWithoutPassword(userId)
         if (userId.isEmpty() || password.isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "아마란스 아이디와 비밀번호를 입력해 주세요.")
         }
@@ -193,6 +227,27 @@ class CustomerController(
             ?: accessLogs.findTop300ByOrderByIdDesc()
         return rows.map { CustomerAccessLogDto(it.userId, it.action, it.customerName, it.detail, it.createdAt.toString()) }
     }
+
+    // 열람 잠금 OFF — 비밀번호 확인만 건너뛴다(권한 목록 확인·토큰 30분·열람 기록은 잠금 ON 과 같다).
+    private fun unlockWithoutPassword(userId: String): Map<String, Any?> {
+        if (userId.isEmpty()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "아마란스 아이디가 필요합니다.")
+        }
+        if (!allowed(userId)) {
+            log(userId, "unlock_denied")
+            throw ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "고객사 정보 열람 권한이 없습니다 — [기타>관리자 설정]의 '고객사 정보 검색'에 지정돼야 합니다.",
+            )
+        }
+        val id = userId.lowercase()
+        val (token, session) = sessions.issue(id, passwordless = true)
+        log(id, "unlock_nopw")
+        return mapOf("token" to token, "userId" to id, "expiresAt" to session.expiresAt.toString())
+    }
+
+    private fun lockEnabled(): Boolean =
+        settings.findById(LOCK_KEY).map { it.settingValue != "false" }.orElse(true)
 
     // 같은 내용이면 다시 쓰지 않는다(updatedAt·updatedBy 보존). 복호화가 안 되는 옛 값은 바뀐 것으로 본다.
     private fun sameContent(stored: String, json: String): Boolean =
