@@ -9,12 +9,14 @@ import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
-// 금주처리현황 위키 자동 등록 사용 현황 1행 = 앱 사용자 1명(로그인ID 당 1행 upsert).
+// 금주처리현황 위키 자동 등록 사용 현황 1행 = 앱 사용자 1명의 PC 1대(로그인ID+PC 당 1행 upsert).
 // 자동 등록은 각자 PC 의 로컬 설정(opt-in)이라 서버는 누가 켜뒀는지 알 수 없다.
 // 그래서 앱이 설정 저장·앱 시작·자동 등록 시도 때마다 자기 상태를 보고하고, 관리자(ejy10241)가 목록으로 본다.
-// 담기는 값은 로그인ID·이름·설정값·마지막 결과뿐 — 위키 계정/비밀번호는 담지 않는다.
+// ★PC 단위★ — 같은 로그인ID 로 PC 두 대(본PC·VM 등)에서 앱을 켜면 로그인ID 1행일 때 꺼진 PC 가 켜진 PC 값을 덮어썼다.
+// 옛 테이블(weekly_auto_reg)은 user_id unique 라 ddl-auto update 로 못 풀어서 새 테이블로 옮긴다(최초 1회 복사).
+// 담기는 값은 로그인ID·PC 이름·이름·설정값·마지막 결과뿐 — 위키 계정/비밀번호는 담지 않는다.
 @Entity
-@Table(name = "weekly_auto_reg", uniqueConstraints = [UniqueConstraint(columnNames = ["user_id"])])
+@Table(name = "weekly_auto_pc", uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "host"])])
 class WeeklyAutoReg(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,6 +24,10 @@ class WeeklyAutoReg(
 
     @Column(name = "user_id", length = 100, nullable = false)
     var userId: String = "",
+
+    // 보고한 PC 이름(os.hostname). host 를 안 보내는 옛 앱 버전은 빈값 — 새 버전이 보고하면 그 빈값 행은 지운다.
+    @Column(length = 100, nullable = false)
+    var host: String = "",
 
     @Column(name = "emp_no", length = 40)
     var empNo: String? = null,
