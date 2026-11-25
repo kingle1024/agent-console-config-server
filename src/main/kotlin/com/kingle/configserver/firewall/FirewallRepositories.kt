@@ -17,6 +17,11 @@ interface FirewallApprovalRepository : JpaRepository<FirewallApproval, Long> {
     fun findTop1000ByOrderByCreatedAtDesc(): List<FirewallApproval>
 }
 
+interface FirewallExpiryRepository : JpaRepository<FirewallExpiry, Long> {
+    fun findTop500ByOrderByEndDateDesc(): List<FirewallExpiry>
+    fun findByServiceNameAndDestIpAndEndDate(serviceName: String, destIp: String, endDate: String): FirewallExpiry?
+}
+
 interface FirewallCustomerEndRepository : JpaRepository<FirewallCustomerEnd, Long> {
     fun findByCustomer(customer: String): FirewallCustomerEnd?
 }
